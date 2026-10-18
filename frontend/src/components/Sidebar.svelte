@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { resume, PROFILE_VIEW } from '../lib/stores/resume.svelte';
-	import type { SectionType } from '../lib/types';
+	import type { Section, SectionType } from '../lib/types';
 	import Icon from './Icon.svelte';
+	import SortableList from './SortableList.svelte';
 
 	let showAddForm = $state(false);
 	let newType = $state<SectionType>('custom');
@@ -42,50 +43,32 @@
 	</button>
 
 	<div class="nav-group-label">Sections</div>
-	{#each resume.sections as section, index (section.id)}
-		<div
-			class="nav-item"
-			class:active={resume.selectedSectionId === section.id}
-			class:dimmed={!section.visible}
-			role="button"
-			tabindex="0"
-			onclick={() => (resume.selectedSectionId = section.id)}
-			onkeydown={(e) => e.key === 'Enter' && (resume.selectedSectionId = section.id)}
-		>
-			<button
-				class="icon-btn"
-				title={section.visible ? 'Hide from this resume' : 'Show in this resume'}
-				onclick={(e) => {
-					e.stopPropagation();
-					resume.setSectionVisible(section.id, !section.visible);
-				}}
+	<SortableList items={resume.sections} reorder={(ids) => resume.reorderSections(ids)}>
+		{#snippet row(section: Section)}
+			<div
+				class="nav-item"
+				class:active={resume.selectedSectionId === section.id}
+				class:dimmed={!section.visible}
+				role="button"
+				tabindex="0"
+				onclick={() => (resume.selectedSectionId = section.id)}
+				onkeydown={(e) => e.key === 'Enter' && (resume.selectedSectionId = section.id)}
 			>
-				<Icon name={section.visible ? 'eye' : 'eye-off'} size={15} />
-			</button>
-			<span class="nav-title">{section.title}</span>
-			<span class="nav-count">{section.items?.length ?? 0}</span>
-			<span class="nav-reorder">
 				<button
 					class="icon-btn"
-					title="Move up"
-					disabled={index === 0}
+					title={section.visible ? 'Hide from this resume' : 'Show in this resume'}
 					onclick={(e) => {
 						e.stopPropagation();
-						resume.moveSection(section.id, -1);
-					}}><Icon name="up" size={13} /></button
+						resume.setSectionVisible(section.id, !section.visible);
+					}}
 				>
-				<button
-					class="icon-btn"
-					title="Move down"
-					disabled={index === resume.sections.length - 1}
-					onclick={(e) => {
-						e.stopPropagation();
-						resume.moveSection(section.id, 1);
-					}}><Icon name="down" size={13} /></button
-				>
-			</span>
-		</div>
-	{/each}
+					<Icon name={section.visible ? 'eye' : 'eye-off'} size={15} />
+				</button>
+				<span class="nav-title">{section.title}</span>
+				<span class="nav-count">{section.items?.length ?? 0}</span>
+			</div>
+		{/snippet}
+	</SortableList>
 
 	<button class="add-section btn ghost" onclick={() => (showAddForm = !showAddForm)}>
 		<Icon name="plus" size={14} />
@@ -114,6 +97,10 @@
 		gap: 2px;
 		padding: 12px 8px;
 		overflow-y: auto;
+	}
+
+	.sidebar :global(.sortable) {
+		gap: 2px;
 	}
 
 	.nav-group-label {
@@ -163,16 +150,6 @@
 		background: var(--muted);
 		border-radius: 9999px;
 		padding: 1px 7px;
-	}
-
-	.nav-reorder {
-		display: none;
-		gap: 1px;
-	}
-
-	.nav-item:hover .nav-reorder,
-	.nav-item.active .nav-reorder {
-		display: inline-flex;
 	}
 
 	.add-section {

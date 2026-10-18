@@ -158,17 +158,17 @@ class ResumeStore {
 		}
 	}
 
-	async moveSection(sectionId: number, delta: number) {
-		const ids = this.sections.map((s) => s.id);
-		const index = ids.indexOf(sectionId);
-		const target = index + delta;
-		if (index < 0 || target < 0 || target >= ids.length) return;
-		[ids[index], ids[target]] = [ids[target], ids[index]];
+	async reorderSections(ids: number[]) {
+		if (!this.state) return;
+		const previous = this.sections;
+		this.state.sections = ids
+			.map((id) => previous.find((s) => s.id === id))
+			.filter((s): s is Section => !!s);
 		try {
 			await api.reorderSections(ids);
-			await this.reload();
 		} catch (e) {
 			this.fail(e);
+			await this.reload();
 		}
 	}
 
@@ -210,19 +210,18 @@ class ResumeStore {
 		}
 	}
 
-	async moveItem(sectionId: number, itemId: number, delta: number) {
+	async reorderItems(sectionId: number, ids: number[]) {
 		const section = this.sections.find((s) => s.id === sectionId);
 		if (!section) return;
-		const ids = (section.items ?? []).map((i) => i.id);
-		const index = ids.indexOf(itemId);
-		const target = index + delta;
-		if (index < 0 || target < 0 || target >= ids.length) return;
-		[ids[index], ids[target]] = [ids[target], ids[index]];
+		const previous = section.items ?? [];
+		section.items = ids
+			.map((id) => previous.find((i) => i.id === id))
+			.filter((i): i is Item => !!i);
 		try {
 			await api.reorderItems(sectionId, ids);
-			await this.reload();
 		} catch (e) {
 			this.fail(e);
+			await this.reload();
 		}
 	}
 
@@ -281,20 +280,18 @@ class ResumeStore {
 		}
 	}
 
-	async moveDetail(itemId: number, detailId: number, delta: number) {
-		const detail = this.findDetail(detailId);
-		if (!detail) return;
-		const siblings = this.findItem(itemId)?.details ?? [];
-		const ids = siblings.map((d) => d.id);
-		const index = ids.indexOf(detailId);
-		const target = index + delta;
-		if (index < 0 || target < 0 || target >= ids.length) return;
-		[ids[index], ids[target]] = [ids[target], ids[index]];
+	async reorderDetails(itemId: number, ids: number[]) {
+		const item = this.findItem(itemId);
+		if (!item) return;
+		const previous = item.details ?? [];
+		item.details = ids
+			.map((id) => previous.find((d) => d.id === id))
+			.filter((d): d is Detail => !!d);
 		try {
 			await api.reorderDetails(itemId, ids);
-			await this.reload();
 		} catch (e) {
 			this.fail(e);
+			await this.reload();
 		}
 	}
 

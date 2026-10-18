@@ -6,18 +6,66 @@
 	import Editor from './components/Editor.svelte';
 	import Preview from './components/Preview.svelte';
 
+	const MIN_PANE_WIDTH = 480;
+	const SPLIT_KEY = 'resumator-split';
+
+	function initialWidth(): number {
+		const saved = Number(localStorage.getItem(SPLIT_KEY));
+		const max = window.innerWidth - MIN_PANE_WIDTH;
+		if (saved >= MIN_PANE_WIDTH && saved <= max) return saved;
+		return Math.min(Math.round(window.innerWidth * 0.42), max);
+	}
+
+	let leftWidth = $state(initialWidth());
+	let dragging = $state(false);
+
+	function onDividerDown(event: PointerEvent) {
+		dragging = true;
+		(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+	}
+
+	function onDividerMove(event: PointerEvent) {
+		if (!dragging) return;
+		const container = (event.currentTarget as HTMLElement).parentElement;
+		if (!container) return;
+		const rect = container.getBoundingClientRect();
+		leftWidth = Math.min(
+			Math.max(event.clientX - rect.left, MIN_PANE_WIDTH),
+			rect.width - MIN_PANE_WIDTH
+		);
+	}
+
+	function onDividerUp() {
+		if (!dragging) return;
+		dragging = false;
+		localStorage.setItem(SPLIT_KEY, String(leftWidth));
+	}
+
 	onMount(() => {
 		resume.init();
 	});
 </script>
 
+<svelte:window
+	onresize={() => (leftWidth = Math.min(leftWidth, window.innerWidth - MIN_PANE_WIDTH))}
+/>
+
 <TopBar />
 
 <div class="split">
-	<div class="pane pane-left">
+	<div class="pane pane-left" style:width="{leftWidth}px">
 		<Sidebar />
 		<Editor />
 	</div>
+	<div
+		class="divider"
+		class:active={dragging}
+		role="separator"
+		aria-orientation="vertical"
+		onpointerdown={onDividerDown}
+		onpointermove={onDividerMove}
+		onpointerup={onDividerUp}
+	></div>
 	<div class="pane pane-right">
 		<Preview />
 	</div>
@@ -30,8 +78,7 @@
 <style>
 	.split {
 		flex: 1;
-		display: grid;
-		grid-template-columns: minmax(420px, 42%) 1fr;
+		display: flex;
 		min-height: 0;
 	}
 
@@ -43,7 +90,8 @@
 	}
 
 	.pane-left {
-		border-right: 1px solid var(--border);
+		flex-shrink: 0;
+		border-right: none;
 		flex-direction: row;
 	}
 
@@ -59,7 +107,20 @@
 		background: var(--background);
 	}
 
+	.divider {
+		flex: 0 0 6px;
+		cursor: col-resize;
+		background: var(--border);
+		touch-action: none;
+	}
+
+	.divider:hover,
+	.divider.active {
+		background: var(--primary);
+	}
+
 	.pane-right {
+		flex: 1;
 		background: var(--muted);
 	}
 

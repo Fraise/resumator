@@ -42,6 +42,15 @@
 		<path d="M10.5 3.5v-1a1 1 0 0 0-1-1h-7a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h1" />
 	{:else if name === 'pencil'}
 		<path d="M11.5 2.5l2 2L5 13l-2.7.7L3 11z" />
+	{:else if name === 'grip'}
+		<g fill="currentColor" stroke="none">
+			<circle cx="6" cy="3.5" r="1.3" />
+			<circle cx="10" cy="3.5" r="1.3" />
+			<circle cx="6" cy="8" r="1.3" />
+			<circle cx="10" cy="8" r="1.3" />
+			<circle cx="6" cy="12.5" r="1.3" />
+			<circle cx="10" cy="12.5" r="1.3" />
+		</g>
 	{:else if name === 'check'}
 		<path d="M3 8.5l3.5 3.5L13 4.5" />
 	{:else if name === 'x'}

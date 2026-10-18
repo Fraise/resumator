@@ -57,8 +57,6 @@
 </script>
 
 <header class="topbar">
-	<div class="brand">Resumator</div>
-
 	<div class="presets">
 		<span class="preset-label">Resume</span>
 		<select
@@ -158,13 +156,6 @@
 		background: var(--card);
 		border-bottom: 1px solid var(--border);
 		flex-wrap: wrap;
-	}
-
-	.brand {
-		font-size: 16px;
-		font-weight: 700;
-		letter-spacing: -0.01em;
-		color: var(--gold);
 	}
 
 	.presets {

@@ -1,13 +1,12 @@
 <script lang="ts">
 	import { resume } from '../lib/stores/resume.svelte';
-	import type { Item, Section } from '../lib/types';
+	import type { Item } from '../lib/types';
 	import Icon from './Icon.svelte';
 
 	let {
 		item,
-		section,
 		children
-	}: { item: Item; section: Section; children?: import('svelte').Snippet } = $props();
+	}: { item: Item; children?: import('svelte').Snippet } = $props();
 </script>
 
 <article class="item-card" class:excluded={!item.included}>
@@ -22,18 +21,6 @@
 			In this resume
 		</label>
 		<span class="card-actions">
-			<button
-				class="icon-btn"
-				disabled={section.items.indexOf(item) === 0}
-				title="Move up"
-				onclick={() => resume.moveItem(section.id, item.id, -1)}><Icon name="up" size={14} /></button
-			>
-			<button
-				class="icon-btn"
-				disabled={section.items.indexOf(item) === (section.items?.length ?? 1) - 1}
-				title="Move down"
-				onclick={() => resume.moveItem(section.id, item.id, 1)}><Icon name="down" size={14} /></button
-			>
 			<button class="icon-btn" title="Remove entry" onclick={() => resume.deleteItem(item.id)}>
 				<Icon name="trash" size={14} />
 			</button>

@@ -89,7 +89,7 @@ func (s *Store) GetResumeState(presetID int64) (models.ResumeState, error) {
 		       COALESCE(ps.visible, 1) AS visible
 		FROM sections s
 		LEFT JOIN preset_sections ps ON ps.section_id = s.id AND ps.preset_id = ?
-		ORDER BY COALESCE(ps.sort_order, s.sort_order), s.id`, presetID)
+		ORDER BY s.sort_order, s.id`, presetID)
 	if err != nil {
 		return state, fmt.Errorf("load sections: %w", err)
 	}
