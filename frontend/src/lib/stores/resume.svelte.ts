@@ -125,23 +125,7 @@ class ResumeStore {
 		if (!section) return;
 		section.title = title;
 		debounce(`section-title:${sectionId}`, () => {
-			// The title shown is preset-resolved: base title when no
-			// override exists. Persist both base title and the override.
 			api.updateSection(sectionId, title).catch((e) => this.fail(e));
-			api.setSectionTitle(this.activePresetId, sectionId, '').catch((e) => this.fail(e));
-		});
-	}
-
-	setPresetSectionTitle(sectionId: number, title: string) {
-		const section = this.sections.find((s) => s.id === sectionId);
-		if (section) section.title = title.trim() || section.title;
-		debounce(`preset-title:${sectionId}`, async () => {
-			try {
-				await api.setSectionTitle(this.activePresetId, sectionId, title);
-				await this.reload();
-			} catch (e) {
-				this.fail(e);
-			}
 		});
 	}
 
@@ -222,6 +206,54 @@ class ResumeStore {
 		} catch (e) {
 			this.fail(e);
 			await this.reload();
+		}
+	}
+
+	// A skill group is a marker item with a title; the skills listed after
+	// it belong to the group.
+	async addSkillGroup(sectionId: number) {
+		try {
+			const item = await api.addItem(sectionId);
+			await api.updateItemData(item.id, { divider: true, title: '' });
+			await this.reload();
+		} catch (e) {
+			this.fail(e);
+		}
+	}
+
+	// Adds a skill and places it at the end of the given skill group's run
+	// (dividerId null = the ungrouped skills before any divider).
+	async addItemToGroup(sectionId: number, dividerId: number | null) {
+		const section = this.sections.find((s) => s.id === sectionId);
+		if (!section) return;
+		try {
+			const created = await api.addItem(sectionId);
+			const ids = (section.items ?? []).map((i) => i.id);
+			ids.push(created.id);
+			const byId = new Map((section.items ?? []).map((i) => [i.id, i]));
+			let insertAt = ids.length - 1;
+			if (dividerId === null) {
+				let count = 0;
+				for (const it of section.items ?? []) {
+					if (it.data.divider) break;
+					count++;
+				}
+				insertAt = count;
+			} else {
+				const divIdx = ids.indexOf(dividerId);
+				if (divIdx >= 0) {
+					// Walk to the end of the group's run (before the next divider).
+					let pos = divIdx + 1;
+					while (pos < ids.length - 1 && !byId.get(ids[pos])?.data.divider) pos++;
+					insertAt = pos;
+				}
+			}
+			ids.splice(ids.indexOf(created.id), 1);
+			ids.splice(insertAt, 0, created.id);
+			await api.reorderItems(sectionId, ids);
+			await this.reload();
+		} catch (e) {
+			this.fail(e);
 		}
 	}
 

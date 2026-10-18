@@ -25,6 +25,26 @@
 		return level ? `${name} (${level})` : name;
 	}
 
+	function skillGroups(
+		section: Section
+	): { title: string; showTitle: boolean; skills: Item[] }[] {
+		const groups: { title: string; showTitle: boolean; skills: Item[] }[] = [
+			{ title: '', showTitle: false, skills: [] }
+		];
+		for (const item of section.items ?? []) {
+			if (item.data.divider) {
+				groups.push({
+					title: String(item.data.title ?? '').trim(),
+					showTitle: item.included,
+					skills: []
+				});
+			} else {
+				groups[groups.length - 1].skills.push(item);
+			}
+		}
+		return groups;
+	}
+
 	function dateRange(item: Item): string {
 		const start = String(item.data.start ?? '').trim();
 		const end = String(item.data.end ?? '').trim();
@@ -73,10 +93,20 @@
 					<section class="resume-section">
 						<h2 class="section-title">{section.title}</h2>
 						{#if section.type === 'skills'}
-							{@const skills = included(section.items).map(skillText).filter(Boolean)}
-							{#if skills.length}
-								<p class="skills">{skills.join(', ')}</p>
-							{/if}
+							{#each skillGroups(section) as group}
+								{@const skills = group.skills
+									.filter((i) => i.included)
+									.map(skillText)
+									.filter(Boolean)}
+								{#if group.showTitle && group.title}
+									<div class="skill-group-title">{group.title}</div>
+								{/if}
+								{#if skills.length}
+									<p class="skills" class:titled={group.showTitle && !!group.title}>
+										{skills.join(', ')}
+									</p>
+								{/if}
+							{/each}
 						{:else}
 							{#each included(section.items) as item (item.id)}
 								{#if entryTitle(item, section.type as 'experience' | 'education' | 'custom') || dateRange(item)}
@@ -166,6 +196,16 @@
 	.skills {
 		margin: 2mm 0 0;
 		font-size: 9.5pt;
+	}
+
+	.skills.titled {
+		margin-top: 0.5mm;
+	}
+
+	.skill-group-title {
+		font-weight: 700;
+		font-size: 9.5pt;
+		margin-top: 2mm;
 	}
 
 	.entry-head {

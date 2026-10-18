@@ -32,8 +32,6 @@ export const api = {
 		backend.ToggleDetail(presetId, detailId, included),
 	setSectionVisible: (presetId: number, sectionId: number, visible: boolean) =>
 		backend.SetSectionVisible(presetId, sectionId, visible),
-	setSectionTitle: (presetId: number, sectionId: number, title: string) =>
-		backend.SetSectionTitle(presetId, sectionId, title),
 	createPreset: (name: string) =>
 		backend.CreatePreset(name) as unknown as Promise<Preset>,
 	duplicatePreset: (name: string, sourceId: number) =>

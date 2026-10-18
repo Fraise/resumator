@@ -1,20 +1,35 @@
 <script lang="ts" generics="T extends { id: number }">
 	import type { Snippet } from 'svelte';
 	import Icon from './Icon.svelte';
+	import { sortable } from '../lib/sortable.svelte';
 
 	let {
 		items,
 		reorder,
-		row
+		row,
+		layout = 'list',
+		kind = '',
+		moveIn
 	}: {
 		items: T[];
 		reorder: (ids: number[]) => void;
 		row: Snippet<[T]>;
+		/** 'list' stacks rows vertically; 'flow' wraps them side by side. */
+		layout?: 'list' | 'flow';
+		/** Tag identifying what kind of thing this list drags; drags with a
+		 * different kind are ignored by this list. */
+		kind?: string;
+		/** Called when an item from another list of the same kind is dropped
+		 * here. When absent, only same-list reordering is possible. */
+		moveIn?: (itemId: number, index: number) => void;
 	} = $props();
 
 	let container: HTMLElement;
+	const listId = `sl-${Math.random().toString(36).slice(2, 10)}`;
+
 	let dragId = $state<number | null>(null);
-	let dropIndex = $state<number | null>(null);
+	const targeted = $derived(sortable.target?.listId === listId);
+	const dropIndex = $derived(targeted ? sortable.target?.index ?? null : null);
 
 	const DRAG_THRESHOLD_PX = 4;
 	const EDGE_SCROLL_PX = 24;
@@ -22,7 +37,6 @@
 	let pendingId: number | null = null;
 	let dragStarted = false;
 	let startClientY = 0;
-	let rowBounds: { top: number; bottom: number }[] = [];
 	let scroller: HTMLElement | null = null;
 
 	function findScrollParent(element: HTMLElement): HTMLElement | null {
@@ -37,36 +51,6 @@
 		return null;
 	}
 
-	// Caches each row's vertical bounds relative to the scroll parent's
-	// content, so drop positions stay correct while auto-scrolling.
-	function measureRows() {
-		scroller = findScrollParent(container);
-		const scrollerTop = scroller ? scroller.getBoundingClientRect().top - scroller.scrollTop : 0;
-		rowBounds = Array.from(container.querySelectorAll('.sortable-row')).map((el) => {
-			const rect = (el as HTMLElement).getBoundingClientRect();
-			const top = rect.top - scrollerTop;
-			return { top, bottom: top + rect.height };
-		});
-	}
-
-	function contentY(clientY: number): number {
-		if (!scroller) return clientY;
-		return clientY - scroller.getBoundingClientRect().top + scroller.scrollTop;
-	}
-
-	function updateDropIndex(clientY: number) {
-		const y = contentY(clientY);
-		let index = items.length;
-		for (let i = 0; i < rowBounds.length; i++) {
-			const middle = (rowBounds[i].top + rowBounds[i].bottom) / 2;
-			if (y < middle) {
-				index = i;
-				break;
-			}
-		}
-		dropIndex = index;
-	}
-
 	function autoScroll(clientY: number) {
 		if (!scroller) return;
 		const rect = scroller.getBoundingClientRect();
@@ -76,6 +60,38 @@
 			scroller.scrollTop += 12;
 		}
 	}
+
+	// Registers this list with the drag bus. Re-registered when props
+	// change so the closures always see fresh items and callbacks.
+	$effect(() => {
+		const currentItems = items;
+		const localReorder = (itemId: number, index: number) => {
+			const ids = currentItems.map((i) => i.id);
+			const from = ids.indexOf(itemId);
+			if (from < 0) return;
+			ids.splice(from, 1);
+			let to = index;
+			if (to > from) to -= 1;
+			ids.splice(to, 0, itemId);
+			const unchanged =
+				ids.length === currentItems.length && ids.every((id, i) => id === currentItems[i].id);
+			if (!unchanged) reorder(ids);
+		};
+		sortable.register(listId, {
+			el: container,
+			layout,
+			accepts: (drag) =>
+				drag.kind === kind && (drag.sourceListId === listId || !!moveIn),
+			onDrop: (itemId, index) => {
+				if (sortable.current?.sourceListId === listId) {
+					localReorder(itemId, index);
+				} else {
+					moveIn?.(itemId, index);
+				}
+			}
+		});
+		return () => sortable.unregister(listId);
+	});
 
 	function onGripPointerDown(event: PointerEvent, item: T) {
 		if (event.button !== 0) return;
@@ -92,47 +108,46 @@
 			if (Math.abs(event.clientY - startClientY) < DRAG_THRESHOLD_PX) return;
 			dragStarted = true;
 			dragId = pendingId;
-			dropIndex = null;
 			document.body.style.userSelect = 'none';
-			measureRows();
+			scroller = findScrollParent(container);
+			sortable.start({ kind, itemId: pendingId, sourceListId: listId });
 		}
 		event.preventDefault();
-		updateDropIndex(event.clientY);
+		sortable.target = sortable.locate(event.clientX, event.clientY);
 		autoScroll(event.clientY);
 	}
 
 	function finishDrag(apply: boolean) {
-		if (dragStarted && apply && dragId !== null && dropIndex !== null) {
-			const ids = items.map((i) => i.id);
-			const from = ids.indexOf(dragId);
-			if (from >= 0) {
-				ids.splice(from, 1);
-				let to = dropIndex;
-				if (to > from) to -= 1;
-				ids.splice(to, 0, dragId);
-				const unchanged =
-					ids.length === items.length && ids.every((id, i) => id === items[i].id);
-				if (!unchanged) reorder(ids);
+		if (dragStarted && apply && dragId !== null) {
+			const target = sortable.target;
+			if (target) {
+				sortable.get(target.listId)?.onDrop(dragId, target.index);
 			}
 		}
 		pendingId = null;
 		dragStarted = false;
 		dragId = null;
-		dropIndex = null;
 		document.body.style.userSelect = '';
-	}
-
-	function onGripPointerUp() {
-		finishDrag(true);
+		sortable.end();
 	}
 </script>
 
-<div class="sortable" role="list" bind:this={container}>
+<div
+	class="sortable"
+	class:flow={layout === 'flow'}
+	class:targeted
+	role="list"
+	bind:this={container}
+>
 	{#each items as item, index (item.id)}
-		{#if dropIndex === index && dragId !== null && dragId !== item.id}
+		{#if dropIndex === index && sortable.current?.itemId !== item.id}
 			<div class="drop-marker" aria-hidden="true"></div>
 		{/if}
-		<div class="sortable-row" class:dragging={dragId === item.id} role="listitem">
+		<div
+			class="sortable-row"
+			class:dragging={sortable.current?.itemId === item.id}
+			role="listitem"
+		>
 			<span
 				class="grip"
 				role="button"
@@ -141,7 +156,7 @@
 				title="Drag to reorder"
 				onpointerdown={(e) => onGripPointerDown(e, item)}
 				onpointermove={onGripPointerMove}
-				onpointerup={onGripPointerUp}
+				onpointerup={() => finishDrag(true)}
 				onpointercancel={() => finishDrag(false)}
 			>
 				<Icon name="grip" size={14} />
@@ -151,7 +166,7 @@
 			</div>
 		</div>
 	{/each}
-	{#if dropIndex === items.length && dragId !== null}
+	{#if dropIndex === items.length && sortable.current !== null}
 		<div class="drop-marker" aria-hidden="true"></div>
 	{/if}
 </div>
@@ -161,12 +176,31 @@
 		display: flex;
 		flex-direction: column;
 		gap: 10px;
+		min-width: 0;
+	}
+
+	/* Flow layout: rows wrap side by side when there is room. */
+	.sortable.flow {
+		flex-direction: row;
+		flex-wrap: wrap;
+		align-content: flex-start;
+		gap: 6px 4px;
+	}
+
+	.sortable.targeted {
+		outline: 1.5px dashed var(--primary);
+		outline-offset: 3px;
+		border-radius: 8px;
 	}
 
 	.sortable-row {
 		display: flex;
 		align-items: flex-start;
 		gap: 4px;
+	}
+
+	.sortable.flow .sortable-row {
+		width: auto;
 	}
 
 	.sortable-row.dragging {
@@ -197,10 +231,21 @@
 		min-width: 0;
 	}
 
+	.sortable.flow .row-content {
+		flex: 0 1 auto;
+	}
+
 	.drop-marker {
 		height: 2px;
 		border-radius: 2px;
 		background: var(--primary);
 		margin: -1px 0;
+	}
+
+	.sortable.flow .drop-marker {
+		width: 2px;
+		height: auto;
+		align-self: stretch;
+		margin: 0 -1px;
 	}
 </style>

@@ -222,19 +222,3 @@ func (s *Store) SetSectionVisible(presetID, sectionID int64, visible bool) error
 	}
 	return nil
 }
-
-// SetSectionTitle stores a per-preset title override for a section. An
-// empty override falls back to the section's base title.
-func (s *Store) SetSectionTitle(presetID, sectionID int64, titleOverride string) error {
-	if err := s.validatePreset(presetID); err != nil {
-		return err
-	}
-	if _, err := s.db.Exec(`
-		INSERT INTO preset_sections (preset_id, section_id, visible, sort_order, title_override)
-		VALUES (?, ?, 1, 0, NULLIF(?, ''))
-		ON CONFLICT(preset_id, section_id) DO UPDATE SET title_override = NULLIF(?, '')`,
-		presetID, sectionID, titleOverride, titleOverride); err != nil {
-		return fmt.Errorf("set section title: %w", err)
-	}
-	return nil
-}

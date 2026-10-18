@@ -196,15 +196,6 @@ func (a *App) SetSectionVisible(presetID, sectionID int64, visible bool) error {
 	return s.SetSectionVisible(presetID, sectionID, visible)
 }
 
-// SetSectionTitle sets a per-preset title override for a section.
-func (a *App) SetSectionTitle(presetID, sectionID int64, titleOverride string) error {
-	s, err := a.st()
-	if err != nil {
-		return err
-	}
-	return s.SetSectionTitle(presetID, sectionID, titleOverride)
-}
-
 // CreatePreset adds a new preset with default selections.
 func (a *App) CreatePreset(name string) (models.Preset, error) {
 	s, err := a.st()

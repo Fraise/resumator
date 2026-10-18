@@ -13,7 +13,7 @@
 		const saved = Number(localStorage.getItem(SPLIT_KEY));
 		const max = window.innerWidth - MIN_PANE_WIDTH;
 		if (saved >= MIN_PANE_WIDTH && saved <= max) return saved;
-		return Math.min(Math.round(window.innerWidth * 0.42), max);
+		return Math.min(Math.round(window.innerWidth * 0.5), max);
 	}
 
 	let leftWidth = $state(initialWidth());

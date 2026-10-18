@@ -113,8 +113,22 @@ func addContact(m core.Maroto, section models.Section) {
 }
 
 func addSkills(m core.Maroto, section models.Section) {
-	parts := []string{}
+	// Skill groups are marker items with a divider flag; the skills listed
+	// after a marker belong to its group and render on their own line.
+	type skillGroup struct {
+		title  string
+		skills []string
+	}
+	groups := []skillGroup{{}}
 	for _, it := range section.Items {
+		if boolVal(it.Data, "divider") {
+			title := ""
+			if it.Included {
+				title = strings.TrimSpace(str(it.Data, "title"))
+			}
+			groups = append(groups, skillGroup{title: title})
+			continue
+		}
 		if !it.Included {
 			continue
 		}
@@ -122,16 +136,25 @@ func addSkills(m core.Maroto, section models.Section) {
 		if name == "" {
 			continue
 		}
+		g := &groups[len(groups)-1]
 		if level := strings.TrimSpace(str(it.Data, "level")); level != "" {
-			parts = append(parts, name+" ("+level+")")
+			g.skills = append(g.skills, name+" ("+level+")")
 		} else {
-			parts = append(parts, name)
+			g.skills = append(g.skills, name)
 		}
 	}
-	if len(parts) == 0 {
-		return
+	for _, g := range groups {
+		if g.title != "" {
+			m.AddRow(4.5, text.NewCol(12, g.title, props.Text{
+				Style: fontstyle.Bold, Size: 9.5, Top: 1,
+			}))
+		}
+		if len(g.skills) > 0 {
+			m.AddRows(text.NewAutoRow(strings.Join(g.skills, ", "), props.Text{
+				Size: 9.5,
+			}))
+		}
 	}
-	m.AddRows(text.NewAutoRow(strings.Join(parts, ", "), props.Text{Size: 9.5}))
 }
 
 func dateRange(data map[string]interface{}) string {
@@ -224,6 +247,18 @@ func addDetails(m core.Maroto, details []models.Detail) {
 			Size: 9.5, Left: 3,
 		}))
 	}
+}
+
+func boolVal(m map[string]interface{}, key string) bool {
+	if m == nil {
+		return false
+	}
+	if v, ok := m[key]; ok {
+		if b, ok := v.(bool); ok {
+			return b
+		}
+	}
+	return false
 }
 
 func str(m map[string]interface{}, key string) string {

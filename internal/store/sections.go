@@ -84,9 +84,7 @@ func (s *Store) GetResumeState(presetID int64) (models.ResumeState, error) {
 	state.Sections = []models.Section{}
 
 	rows, err := s.db.Query(`
-		SELECT s.id, s.type,
-		       COALESCE(NULLIF(ps.title_override, ''), s.title) AS title,
-		       COALESCE(ps.visible, 1) AS visible
+		SELECT s.id, s.type, s.title, COALESCE(ps.visible, 1) AS visible
 		FROM sections s
 		LEFT JOIN preset_sections ps ON ps.section_id = s.id AND ps.preset_id = ?
 		ORDER BY s.sort_order, s.id`, presetID)

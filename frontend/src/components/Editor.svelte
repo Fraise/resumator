@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { resume } from '../lib/stores/resume.svelte';
-	import Icon from './Icon.svelte';
 	import ProfileEditor from './editors/ProfileEditor.svelte';
 	import ContactEditor from './editors/ContactEditor.svelte';
 	import SkillsEditor from './editors/SkillsEditor.svelte';
@@ -11,17 +10,6 @@
 	const section = $derived(resume.selectedSection);
 
 	let confirmDelete = $state(false);
-	let presetTitle = $state('');
-
-	// Track the resolved title to seed the override field when the
-	// selected section changes.
-	$effect(() => {
-		const s = section;
-		presetTitle = '';
-		if (s) {
-			presetTitle = s.title;
-		}
-	});
 </script>
 
 <section class="editor">
@@ -29,24 +17,14 @@
 		<ProfileEditor />
 	{:else}
 		<div class="section-header">
-			<div class="header-fields">
-				<label class="field">
-					<span>Section name</span>
-					<input
-						value={section.title}
-						oninput={(e) =>
-							resume.updateSectionTitle(section.id, (e.currentTarget as HTMLInputElement).value)}
-					/>
-				</label>
-				<label class="field">
-					<span>Title in this resume (optional)</span>
-					<input
-						placeholder="Defaults to the section name"
-						bind:value={presetTitle}
-						oninput={() => resume.setPresetSectionTitle(section.id, presetTitle)}
-					/>
-				</label>
-			</div>
+			<label class="field header-field">
+				<span>Section name</span>
+				<input
+					value={section.title}
+					oninput={(e) =>
+						resume.updateSectionTitle(section.id, (e.currentTarget as HTMLInputElement).value)}
+				/>
+			</label>
 			<button
 				class="btn small danger"
 				onclick={() => {
@@ -92,13 +70,7 @@
 		align-items: flex-start;
 	}
 
-	.header-fields {
-		flex: 1;
-		display: flex;
-		gap: 12px;
-	}
-
-	.header-fields .field {
+	.header-field {
 		flex: 1;
 	}
 

@@ -62,10 +62,6 @@ export function ReorderSections(arg1) {
   return window['go']['main']['App']['ReorderSections'](arg1);
 }
 
-export function SetSectionTitle(arg1, arg2, arg3) {
-  return window['go']['main']['App']['SetSectionTitle'](arg1, arg2, arg3);
-}
-
 export function SetSectionVisible(arg1, arg2, arg3) {
   return window['go']['main']['App']['SetSectionVisible'](arg1, arg2, arg3);
 }
