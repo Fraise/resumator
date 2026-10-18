@@ -1,33 +1,36 @@
-/* Resumator global theme - docsmith-style light/dark tokens. */
+/* Resumator global theme - warm earthy palette:
+   deep teal, cream, terracotta, dark brown, gold. */
 :root {
-	--background: #f9f9fb;
-	--foreground: #1c1c22;
-	--card: #ffffff;
-	--muted: #f2f2f5;
-	--muted-foreground: #66666f;
-	--border: #e4e4e9;
-	--input: #ffffff;
-	--ring: rgba(124, 58, 237, 0.35);
-	--primary: #6d28d9;
-	--primary-foreground: #ffffff;
-	--accent: #f3eeff;
-	--danger: #b91c1c;
-	--shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 8px 24px rgba(0, 0, 0, 0.06);
+	--background: #e7d8c3;
+	--foreground: #3b2f2a;
+	--card: #f2e9da;
+	--muted: #dccbaf;
+	--muted-foreground: #79685a;
+	--border: #cbb894;
+	--input: #fbf6ec;
+	--ring: rgba(47, 111, 115, 0.35);
+	--primary: #2f6f73;
+	--primary-foreground: #e7d8c3;
+	--accent: #d5e3e3;
+	--gold: #d4a437;
+	--danger: #a3512a;
+	--shadow: 0 1px 2px rgba(59, 47, 42, 0.08), 0 8px 24px rgba(59, 47, 42, 0.1);
 }
 
 [data-theme='dark'] {
-	--background: #0e0e13;
-	--foreground: #e9e9ef;
-	--card: #15151c;
-	--muted: #1d1d26;
-	--muted-foreground: #9d9daa;
-	--border: #262630;
-	--input: #15151c;
-	--ring: rgba(167, 139, 250, 0.4);
-	--primary: #a78bfa;
-	--primary-foreground: #17102b;
-	--accent: #221c38;
-	--danger: #f87171;
+	--background: #3b2f2a;
+	--foreground: #e7d8c3;
+	--card: #463a32;
+	--muted: #52443a;
+	--muted-foreground: #b7a58f;
+	--border: #5c4b3f;
+	--input: #463a32;
+	--ring: rgba(212, 164, 55, 0.4);
+	--primary: #d4a437;
+	--primary-foreground: #3b2f2a;
+	--accent: #514129;
+	--gold: #d4a437;
+	--danger: #e08b5f;
 	--shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35);
 }
 
@@ -96,6 +99,11 @@ select:focus {
 textarea {
 	resize: vertical;
 	min-height: 60px;
+}
+
+input[type='checkbox'] {
+	accent-color: var(--primary);
+	width: auto;
 }
 
 /* Shared control styles, used across components. */
