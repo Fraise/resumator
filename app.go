@@ -196,6 +196,16 @@ func (a *App) SetSectionVisible(presetID, sectionID int64, visible bool) error {
 	return s.SetSectionVisible(presetID, sectionID, visible)
 }
 
+// SetSectionColors sets the optional title and separator colors for a
+// section (empty strings restore the defaults).
+func (a *App) SetSectionColors(sectionID int64, titleColor, lineColor string) error {
+	s, err := a.st()
+	if err != nil {
+		return err
+	}
+	return s.SetSectionColors(sectionID, titleColor, lineColor)
+}
+
 // CreatePreset adds a new preset with default selections.
 func (a *App) CreatePreset(name string) (models.Preset, error) {
 	s, err := a.st()

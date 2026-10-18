@@ -64,6 +64,8 @@ func (s *Store) migrate() error {
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			type TEXT NOT NULL,
 			title TEXT NOT NULL,
+			title_color TEXT NOT NULL DEFAULT '',
+			line_color TEXT NOT NULL DEFAULT '',
 			sort_order INTEGER NOT NULL DEFAULT 0
 		)`,
 		`CREATE TABLE IF NOT EXISTS items (
@@ -106,7 +108,45 @@ func (s *Store) migrate() error {
 			return fmt.Errorf("migrate: %w", err)
 		}
 	}
+
+	// Add columns introduced after the first release to existing
+	// databases (CREATE TABLE IF NOT EXISTS does not touch them).
+	for _, col := range []string{"title_color", "line_color"} {
+		present, err := s.columnExists("sections", col)
+		if err != nil {
+			return err
+		}
+		if !present {
+			if _, err := s.db.Exec(
+				`ALTER TABLE sections ADD COLUMN ` + col + ` TEXT NOT NULL DEFAULT ''`,
+			); err != nil {
+				return fmt.Errorf("migrate: add %s: %w", col, err)
+			}
+		}
+	}
 	return nil
+}
+
+func (s *Store) columnExists(table, column string) (bool, error) {
+	rows, err := s.db.Query(`PRAGMA table_info(` + table + `)`)
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var cid int
+		var name, colType string
+		var notNull int
+		var dflt sql.NullString
+		var pk int
+		if err := rows.Scan(&cid, &name, &colType, &notNull, &dflt, &pk); err != nil {
+			return false, err
+		}
+		if name == column {
+			return true, nil
+		}
+	}
+	return false, rows.Err()
 }
 
 func (s *Store) seed() error {

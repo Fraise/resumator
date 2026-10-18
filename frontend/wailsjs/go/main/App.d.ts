@@ -32,6 +32,8 @@ export function ReorderItems(arg1:number,arg2:Array<number>):Promise<void>;
 
 export function ReorderSections(arg1:Array<number>):Promise<void>;
 
+export function SetSectionColors(arg1:number,arg2:string,arg3:string):Promise<void>;
+
 export function SetSectionVisible(arg1:number,arg2:number,arg3:boolean):Promise<void>;
 
 export function ToggleDetail(arg1:number,arg2:number,arg3:boolean):Promise<void>;

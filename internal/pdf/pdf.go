@@ -5,6 +5,7 @@
 package pdf
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/johnfercher/maroto/v2"
@@ -40,7 +41,7 @@ func Generate(state models.ResumeState) ([]byte, error) {
 		if !section.Visible || section.Type == string(models.SectionContact) {
 			continue
 		}
-		addSectionTitle(m, section.Title)
+		addSectionTitle(m, section.Title, section.TitleColor, section.LineColor)
 		switch models.SectionType(section.Type) {
 		case models.SectionSkills:
 			addSkills(m, section)
@@ -103,21 +104,39 @@ func contactLine(state models.ResumeState) string {
 	return ""
 }
 
-func addSectionTitle(m core.Maroto, title string) {
+func addSectionTitle(m core.Maroto, title, titleColor, lineColor string) {
 	title = strings.TrimSpace(title)
 	if title == "" {
 		return
 	}
 	m.AddRows(text.NewAutoRow(strings.ToUpper(title), props.Text{
-		Style: fontstyle.Bold, Size: 10.5, Top: 3,
+		Style: fontstyle.Bold, Size: 10.5, Top: 3, Color: hexToColor(titleColor),
 	}))
 	// The line row is 3mm tall with the line drawn at 60% height, which
 	// leaves roughly 1mm of air between the title glyphs and the line
 	// (auto rows slightly underestimate text descent). SizePercent 100
 	// makes the line span the full text column, aligned with the words.
-	m.AddRows(line.NewRow(3, props.Line{
-		Color: gray, SizePercent: 100, OffsetPercent: 60,
-	}))
+	lineProps := props.Line{SizePercent: 100, OffsetPercent: 60}
+	if c := hexToColor(lineColor); c != nil {
+		lineProps.Color = c
+	} else {
+		lineProps.Color = gray
+	}
+	m.AddRows(line.NewRow(3, lineProps))
+}
+
+// hexToColor parses an optional "#rrggbb" string; nil falls back to the
+// renderer default.
+func hexToColor(hex string) *props.Color {
+	hex = strings.TrimSpace(hex)
+	if len(hex) != 7 || hex[0] != '#' {
+		return nil
+	}
+	var r, g, b int
+	if _, err := fmt.Sscanf(hex, "#%02x%02x%02x", &r, &g, &b); err != nil {
+		return nil
+	}
+	return &props.Color{Red: r, Green: g, Blue: b}
 }
 
 func addSkills(m core.Maroto, section models.Section) {

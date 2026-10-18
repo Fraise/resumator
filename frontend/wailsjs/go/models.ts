@@ -90,6 +90,8 @@ export namespace models {
 	    id: number;
 	    type: string;
 	    title: string;
+	    titleColor: string;
+	    lineColor: string;
 	    visible: boolean;
 	    items: Item[];
 	
@@ -102,6 +104,8 @@ export namespace models {
 	        this.id = source["id"];
 	        this.type = source["type"];
 	        this.title = source["title"];
+	        this.titleColor = source["titleColor"];
+	        this.lineColor = source["lineColor"];
 	        this.visible = source["visible"];
 	        this.items = this.convertValues(source["items"], Item);
 	    }

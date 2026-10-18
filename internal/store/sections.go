@@ -60,6 +60,22 @@ func (s *Store) ReorderSections(orderedIDs []int64) error {
 	return tx.Commit()
 }
 
+// SetSectionColors stores the optional title and separator colors for a
+// section. Empty strings restore the defaults.
+func (s *Store) SetSectionColors(id int64, titleColor, lineColor string) error {
+	res, err := s.db.Exec(
+		`UPDATE sections SET title_color = ?, line_color = ? WHERE id = ?`,
+		titleColor, lineColor, id,
+	)
+	if err != nil {
+		return fmt.Errorf("set section colors: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("section %d not found", id)
+	}
+	return nil
+}
+
 // GetResumeState resolves the full state for the given preset. When
 // presetID is 0, the oldest preset (Default) is used.
 func (s *Store) GetResumeState(presetID int64) (models.ResumeState, error) {
@@ -84,7 +100,8 @@ func (s *Store) GetResumeState(presetID int64) (models.ResumeState, error) {
 	state.Sections = []models.Section{}
 
 	rows, err := s.db.Query(`
-		SELECT s.id, s.type, s.title, COALESCE(ps.visible, 1) AS visible
+		SELECT s.id, s.type, s.title, s.title_color, s.line_color,
+		       COALESCE(ps.visible, 1) AS visible
 		FROM sections s
 		LEFT JOIN preset_sections ps ON ps.section_id = s.id AND ps.preset_id = ?
 		ORDER BY s.sort_order, s.id`, presetID)
@@ -96,7 +113,9 @@ func (s *Store) GetResumeState(presetID int64) (models.ResumeState, error) {
 	for rows.Next() {
 		var sec models.Section
 		var visible int
-		if err := rows.Scan(&sec.ID, &sec.Type, &sec.Title, &visible); err != nil {
+		if err := rows.Scan(
+			&sec.ID, &sec.Type, &sec.Title, &sec.TitleColor, &sec.LineColor, &visible,
+		); err != nil {
 			return state, err
 		}
 		sec.Visible = visible == 1

@@ -129,6 +129,17 @@ class ResumeStore {
 		});
 	}
 
+	setSectionColors(sectionId: number, titleColor: string, lineColor: string) {
+		const section = this.sections.find((s) => s.id === sectionId);
+		if (!section) return;
+		section.titleColor = titleColor;
+		section.lineColor = lineColor;
+		api.setSectionColors(sectionId, titleColor, lineColor).catch(async (e: unknown) => {
+			this.fail(e);
+			await this.reload();
+		});
+	}
+
 	async deleteSection(sectionId: number) {
 		try {
 			await api.deleteSection(sectionId);

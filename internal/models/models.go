@@ -46,12 +46,16 @@ const (
 
 // Section is a resume section resolved for a given preset: Visible,
 // Title (including any preset override) and Items are preset-dependent.
+// TitleColor and LineColor are optional "#rrggbb" strings; empty means
+// the default rendering colors.
 type Section struct {
-	ID      int64   `json:"id"`
-	Type    string  `json:"type"`
-	Title   string  `json:"title"`
-	Visible bool    `json:"visible"`
-	Items   []Item  `json:"items"`
+	ID         int64  `json:"id"`
+	Type       string `json:"type"`
+	Title      string `json:"title"`
+	TitleColor string `json:"titleColor"`
+	LineColor  string `json:"lineColor"`
+	Visible    bool   `json:"visible"`
+	Items      []Item `json:"items"`
 }
 
 // Preset is a named selection of sections, items and details.

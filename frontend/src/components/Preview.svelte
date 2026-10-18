@@ -91,7 +91,13 @@
 			{#each visibleSections as section (section.id)}
 				{#if section.type !== 'contact'}
 					<section class="resume-section">
-						<h2 class="section-title">{section.title}</h2>
+						<h2
+							class="section-title"
+							style:color={section.titleColor || null}
+							style:border-bottom-color={section.lineColor || null}
+						>
+							{section.title}
+						</h2>
 						{#if section.type === 'skills'}
 							{#each skillGroups(section) as group}
 								{@const skills = group.skills

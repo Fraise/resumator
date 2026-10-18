@@ -24,6 +24,10 @@ export interface Section {
 	id: number;
 	type: SectionType;
 	title: string;
+	/** Optional "#rrggbb"; empty = default color. */
+	titleColor?: string;
+	/** Optional "#rrggbb"; empty = default color. */
+	lineColor?: string;
 	visible: boolean;
 	items: Item[];
 }
