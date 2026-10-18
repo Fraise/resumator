@@ -43,7 +43,7 @@ jobs:
       # files whose names collide across platforms, so packaging and
       # release attachment are done explicitly below instead.
       - name: Build (wails-build-action)
-        uses: dAppServer/wails-build-action/actions/build/wails2@master
+        uses: dAppServer/wails-build-action/actions/build/wails2@v3
         with:
           build-name: resumator
           build-platform: ${{ matrix.build.platform }}
