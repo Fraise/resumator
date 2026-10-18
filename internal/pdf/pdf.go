@@ -1,4 +1,7 @@
-// Package pdf renders a resume state to a PDF document.
+// Package pdf renders a resume state to a PDF document. The layout
+// mirrors the frontend preview: name/headline/contact centered at the
+// top, then one titled block per section. All text rows use automatic
+// heights so wrapped text grows its row instead of overlapping.
 package pdf
 
 import (
@@ -30,16 +33,15 @@ func Generate(state models.ResumeState) ([]byte, error) {
 		Build()
 	m := maroto.New(cfg)
 
-	addHeader(m, state.Profile)
+	addHeader(m, state)
 
 	for _, section := range state.Sections {
-		if !section.Visible {
+		// Contact values are rendered as part of the header.
+		if !section.Visible || section.Type == string(models.SectionContact) {
 			continue
 		}
 		addSectionTitle(m, section.Title)
 		switch models.SectionType(section.Type) {
-		case models.SectionContact:
-			addContact(m, section)
 		case models.SectionSkills:
 			addSkills(m, section)
 		case models.SectionExperience:
@@ -58,17 +60,47 @@ func Generate(state models.ResumeState) ([]byte, error) {
 	return doc.GetBytes(), nil
 }
 
-func addHeader(m core.Maroto, profile models.Profile) {
-	if strings.TrimSpace(profile.Name) != "" {
-		m.AddRow(9, text.NewCol(12, profile.Name, props.Text{
+func addHeader(m core.Maroto, state models.ResumeState) {
+	if name := strings.TrimSpace(state.Profile.Name); name != "" {
+		m.AddRows(text.NewAutoRow(name, props.Text{
 			Style: fontstyle.Bold, Size: 18, Align: align.Center,
 		}))
 	}
-	if strings.TrimSpace(profile.Headline) != "" {
-		m.AddRow(5, text.NewCol(12, profile.Headline, props.Text{
-			Style: fontstyle.Italic, Size: 11, Align: align.Center, Color: gray,
+	if headline := strings.TrimSpace(state.Profile.Headline); headline != "" {
+		m.AddRows(text.NewAutoRow(headline, props.Text{
+			Style: fontstyle.Italic, Size: 10.5, Align: align.Center,
+			Color: gray, Top: 1.5, VerticalPadding: 0.5,
 		}))
 	}
+	if contact := contactLine(state); contact != "" {
+		m.AddRows(text.NewAutoRow(contact, props.Text{
+			Size: 9.5, Align: align.Center, Color: gray, Top: 2, VerticalPadding: 0.5,
+		}))
+	}
+}
+
+// contactLine joins the values of the first visible contact section,
+// mirroring the preview header.
+func contactLine(state models.ResumeState) string {
+	for _, section := range state.Sections {
+		if section.Type != string(models.SectionContact) || !section.Visible {
+			continue
+		}
+		parts := []string{}
+		for _, it := range section.Items {
+			if !it.Included {
+				continue
+			}
+			if v := strings.TrimSpace(str(it.Data, "value")); v != "" {
+				parts = append(parts, v)
+			}
+		}
+		if len(parts) > 0 {
+			return strings.Join(parts, "   •   ")
+		}
+		return ""
+	}
+	return ""
 }
 
 func addSectionTitle(m core.Maroto, title string) {
@@ -76,39 +108,15 @@ func addSectionTitle(m core.Maroto, title string) {
 	if title == "" {
 		return
 	}
-	m.AddRow(6, text.NewCol(12, strings.ToUpper(title), props.Text{
-		Style: fontstyle.Bold, Size: 10.5, Top: 2,
+	m.AddRows(text.NewAutoRow(strings.ToUpper(title), props.Text{
+		Style: fontstyle.Bold, Size: 10.5, Top: 3,
 	}))
-	m.AddRows(line.NewRow(1, props.Line{Color: gray}))
-}
-
-func contactValue(it models.Item) string {
-	label := str(it.Data, "label")
-	value := str(it.Data, "value")
-	if strings.TrimSpace(value) == "" {
-		return ""
-	}
-	if strings.TrimSpace(label) == "" {
-		return value
-	}
-	return value
-}
-
-func addContact(m core.Maroto, section models.Section) {
-	parts := []string{}
-	for _, it := range section.Items {
-		if !it.Included {
-			continue
-		}
-		if v := contactValue(it); v != "" {
-			parts = append(parts, v)
-		}
-	}
-	if len(parts) == 0 {
-		return
-	}
-	m.AddRows(text.NewAutoRow(strings.Join(parts, "   •   "), props.Text{
-		Size: 9.5, Color: gray,
+	// The line row is 3mm tall with the line drawn at 60% height, which
+	// leaves roughly 1mm of air between the title glyphs and the line
+	// (auto rows slightly underestimate text descent). SizePercent 100
+	// makes the line span the full text column, aligned with the words.
+	m.AddRows(line.NewRow(3, props.Line{
+		Color: gray, SizePercent: 100, OffsetPercent: 60,
 	}))
 }
 
@@ -145,13 +153,13 @@ func addSkills(m core.Maroto, section models.Section) {
 	}
 	for _, g := range groups {
 		if g.title != "" {
-			m.AddRow(4.5, text.NewCol(12, g.title, props.Text{
-				Style: fontstyle.Bold, Size: 9.5, Top: 1,
+			m.AddRows(text.NewAutoRow(g.title, props.Text{
+				Style: fontstyle.Bold, Size: 9.5, Top: 1.5,
 			}))
 		}
 		if len(g.skills) > 0 {
 			m.AddRows(text.NewAutoRow(strings.Join(g.skills, ", "), props.Text{
-				Size: 9.5,
+				Size: 9.5, Top: 1, VerticalPadding: 0.5,
 			}))
 		}
 	}
@@ -176,9 +184,19 @@ func addExperience(m core.Maroto, section models.Section) {
 		if !it.Included {
 			continue
 		}
-		addTitleWithDates(m, str(it.Data, "role"), str(it.Data, "company"), dateRange(it.Data))
+		role := strings.TrimSpace(str(it.Data, "role"))
+		company := strings.TrimSpace(str(it.Data, "company"))
+		title := role
+		if role != "" && company != "" {
+			title = role + " — " + company
+		} else {
+			title = role + company
+		}
+		addTitleWithDates(m, title, dateRange(it.Data))
 		if summary := strings.TrimSpace(str(it.Data, "summary")); summary != "" {
-			m.AddRows(text.NewAutoRow(summary, props.Text{Size: 9.5, Color: gray}))
+			m.AddRows(text.NewAutoRow(summary, props.Text{
+				Size: 9.5, Color: gray, Top: 1, VerticalPadding: 0.5,
+			}))
 		}
 		addDetails(m, it.Details)
 	}
@@ -189,15 +207,25 @@ func addEducation(m core.Maroto, section models.Section) {
 		if !it.Included {
 			continue
 		}
-		title := strings.TrimSpace(str(it.Data, "degree"))
+		// Mirrors the preview: "degree — field, school".
+		left := strings.TrimSpace(str(it.Data, "degree"))
 		if field := strings.TrimSpace(str(it.Data, "field")); field != "" {
-			if title == "" {
-				title = field
+			if left == "" {
+				left = field
 			} else {
-				title += " — " + field
+				left += " — " + field
 			}
 		}
-		addTitleWithDates(m, title, str(it.Data, "school"), dateRange(it.Data))
+		school := strings.TrimSpace(str(it.Data, "school"))
+		title := left
+		if school != "" {
+			if title == "" {
+				title = school
+			} else {
+				title += ", " + school
+			}
+		}
+		addTitleWithDates(m, title, dateRange(it.Data))
 		addDetails(m, it.Details)
 	}
 }
@@ -208,34 +236,42 @@ func addCustomItems(m core.Maroto, section models.Section) {
 			continue
 		}
 		if label := strings.TrimSpace(str(it.Data, "label")); label != "" {
-			m.AddRow(5, text.NewCol(12, label, props.Text{Style: fontstyle.Bold, Size: 10, Top: 1}))
+			m.AddRows(text.NewAutoRow(label, props.Text{
+				Style: fontstyle.Bold, Size: 10, Top: 2,
+			}))
 		}
 		if body := strings.TrimSpace(str(it.Data, "text")); body != "" {
-			m.AddRows(text.NewAutoRow(body, props.Text{Size: 9.5}))
+			m.AddRows(text.NewAutoRow(body, props.Text{
+				Size: 9.5, Top: 1, VerticalPadding: 0.5,
+			}))
 		}
 		addDetails(m, it.Details)
 	}
 }
 
-func addTitleWithDates(m core.Maroto, left, right, dates string) {
-	left = strings.TrimSpace(left)
-	right = strings.TrimSpace(right)
-	title := left
-	if right != "" {
-		if title == "" {
-			title = right
-		} else {
-			title += " — " + right
-		}
-	}
-	if dates == "" {
-		m.AddRow(5, text.NewCol(12, title, props.Text{Style: fontstyle.Bold, Size: 10, Top: 1}))
+// addTitleWithDates renders a bold entry title with the date range
+// right-aligned on the same line. The row height is automatic, so long
+// titles wrap instead of overlapping the next row.
+func addTitleWithDates(m core.Maroto, title, dates string) {
+	title = strings.TrimSpace(title)
+	dates = strings.TrimSpace(dates)
+	switch {
+	case title == "" && dates == "":
 		return
+	case title == "":
+		m.AddAutoRow(text.NewCol(12, dates, props.Text{
+			Size: 9, Align: align.Right, Color: gray, Top: 2.5,
+		}))
+	case dates == "":
+		m.AddAutoRow(text.NewCol(12, title, props.Text{
+			Style: fontstyle.Bold, Size: 10, Top: 2,
+		}))
+	default:
+		m.AddAutoRow(
+			text.NewCol(9, title, props.Text{Style: fontstyle.Bold, Size: 10, Top: 2}),
+			text.NewCol(3, dates, props.Text{Size: 9, Align: align.Right, Color: gray, Top: 2.5}),
+		)
 	}
-	m.AddRow(5,
-		text.NewCol(9, title, props.Text{Style: fontstyle.Bold, Size: 10, Top: 1}),
-		text.NewCol(3, dates, props.Text{Size: 9, Align: align.Right, Color: gray, Top: 1.5}),
-	)
 }
 
 func addDetails(m core.Maroto, details []models.Detail) {
@@ -244,7 +280,7 @@ func addDetails(m core.Maroto, details []models.Detail) {
 			continue
 		}
 		m.AddRows(text.NewAutoRow("• "+strings.TrimSpace(d.Text), props.Text{
-			Size: 9.5, Left: 3,
+			Size: 9.5, Left: 3, Top: 0.8, VerticalPadding: 0.5,
 		}))
 	}
 }
