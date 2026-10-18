@@ -33,17 +33,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Full Wails v2 pipeline from the pre-made action: repo discovery,
-      # build options (auto-adds -tags webkit2_41 on Ubuntu 24.04), Go,
-      # Node and Wails CLI setup, `wails build` with the right platform
-      # flags, and per-OS executable permissions.
+      # Full Wails v2 pipeline from the pre-made build action: repo
+      # discovery, build options (auto-adds -tags webkit2_41 on Ubuntu
+      # 24.04), Go, Node and Wails CLI setup, `wails build` with the right
+      # platform flags, and per-OS executable permissions.
+      #
+      # The dAppServer/wails-build-action fork (v3) references its
+      # sub-actions with workspace-relative paths that only resolve inside
+      # its own repository, so it cannot be used from this repo. The
+      # upstream v4 line (dAppCore/build) uses absolute references
+      # (dAppCore/build/actions/...@v4) and works from any repository.
       #
       # package: false — the action's own package step renames the release
       # title to its generated artifact name and uploads raw build/bin
       # files whose names collide across platforms, so packaging and
       # release attachment are done explicitly below instead.
       - name: Build (wails-build-action)
-        uses: dAppServer/wails-build-action/actions/build/wails2@v3
+        uses: dAppCore/build/actions/build/wails2@v4
         with:
           build-name: resumator
           build-platform: ${{ matrix.build.platform }}
