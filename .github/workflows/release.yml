@@ -1,0 +1,72 @@
+name: Release binaries
+
+# Builds release binaries for Windows, Linux and macOS and attaches them
+# to the release. Triggers when a release is published (creating a release
+# through the GitHub UI publishes it immediately; draft releases trigger
+# this only once published).
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.build.platform }}
+    runs-on: ${{ matrix.build.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        build:
+          - platform: linux/amd64
+            os: ubuntu-24.04
+            artifact: resumator-linux-amd64.tar.gz
+          - platform: windows/amd64
+            os: windows-latest
+            artifact: resumator-windows-amd64.zip
+          - platform: darwin/universal
+            os: macos-latest
+            artifact: resumator-darwin-universal.tar.gz
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Full Wails v2 pipeline from the pre-made action: repo discovery,
+      # build options (auto-adds -tags webkit2_41 on Ubuntu 24.04), Go,
+      # Node and Wails CLI setup, `wails build` with the right platform
+      # flags, and per-OS executable permissions.
+      #
+      # package: false — the action's own package step renames the release
+      # title to its generated artifact name and uploads raw build/bin
+      # files whose names collide across platforms, so packaging and
+      # release attachment are done explicitly below instead.
+      - name: Build (wails-build-action)
+        uses: dAppServer/wails-build-action/actions/build/wails2@master
+        with:
+          build-name: resumator
+          build-platform: ${{ matrix.build.platform }}
+          wails-version: v2.17.0
+          go-version: 1.25.x
+          node-version: 22
+          package: 'false'
+
+      # On macOS the build produces an app bundle (build/bin/resumator.app)
+      # rather than a bare binary, so the archive wraps whatever wails
+      # produced.
+      - name: Package (tar.gz)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: tar -czf ${{ matrix.build.artifact }} -C build/bin .
+
+      - name: Package (zip)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Compress-Archive -Path build/bin/resumator.exe -DestinationPath ${{ matrix.build.artifact }}
+
+      - name: Attach to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.build.artifact }}
+          fail_on_unmatched_files: true
