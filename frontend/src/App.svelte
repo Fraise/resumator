@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { resume } from './lib/stores/resume.svelte';
+	import { format, PAGE_SIZES } from './lib/format.svelte';
+	import type { ResumeFormat } from './lib/format.svelte';
 	import TopBar from './components/TopBar.svelte';
 	import Sidebar from './components/Sidebar.svelte';
 	import Editor from './components/Editor.svelte';
@@ -67,6 +69,22 @@
 		onpointerup={onDividerUp}
 	></div>
 	<div class="pane pane-right">
+		<div class="preview-toolbar">
+			<div class="format-switch" role="group" aria-label="Page format">
+				{#each Object.entries(PAGE_SIZES) as [key, size] (key)}
+					<button
+						class:active={format.current === key}
+						title={`Preview and PDF on ${size.label} paper`}
+						onclick={() => {
+							format.set(key as ResumeFormat);
+							resume.refreshLayout();
+						}}
+					>
+						{size.label}
+					</button>
+				{/each}
+			</div>
+		</div>
 		<Preview />
 	</div>
 </div>
@@ -122,6 +140,37 @@
 	.pane-right {
 		flex: 1;
 		background: var(--muted);
+		flex-direction: column;
+	}
+
+	.preview-toolbar {
+		display: flex;
+		justify-content: flex-end;
+		padding: 6px 12px;
+		border-bottom: 1px solid var(--border);
+		background: var(--card);
+		flex-shrink: 0;
+	}
+
+	.format-switch {
+		display: inline-flex;
+		gap: 2px;
+		background: var(--muted);
+		border-radius: 9999px;
+		padding: 2px;
+	}
+
+	.format-switch button {
+		border-radius: 9999px;
+		padding: 3px 12px;
+		font-size: 12.5px;
+		color: var(--muted-foreground);
+	}
+
+	.format-switch button.active {
+		background: var(--card);
+		color: var(--foreground);
+		box-shadow: var(--shadow);
 	}
 
 	.loading {

@@ -44,6 +44,13 @@ export interface ResumeState {
 	sections: Section[];
 }
 
+/** Pagination computed by the backend, matching the PDF export. */
+export interface PageLayout {
+	/** Section IDs that start pages after the first. */
+	breaks: number[];
+	pageCount: number;
+}
+
 export const SECTION_TYPE_LABELS: Record<SectionType, string> = {
 	contact: 'Contact',
 	skills: 'Skills',

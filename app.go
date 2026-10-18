@@ -52,6 +52,25 @@ func (a *App) GetResumeState(presetID int64) (models.ResumeState, error) {
 	return s.GetResumeState(presetID)
 }
 
+// GetPageLayout returns the pagination the PDF export will use, so the
+// preview can match it.
+func (a *App) GetPageLayout(presetID int64, format string) (models.PageLayout, error) {
+	s, err := a.st()
+	if err != nil {
+		return models.PageLayout{}, err
+	}
+	state, err := s.GetResumeState(presetID)
+	if err != nil {
+		return models.PageLayout{}, err
+	}
+	breaks, pageCount := pdf.Layout(state, format)
+	// JSON marshals a nil slice as null; the frontend expects an array.
+	if breaks == nil {
+		breaks = []int64{}
+	}
+	return models.PageLayout{Breaks: breaks, PageCount: pageCount}, nil
+}
+
 // UpdateProfile saves the global profile.
 func (a *App) UpdateProfile(profile models.Profile) error {
 	s, err := a.st()
@@ -243,8 +262,9 @@ func (a *App) DeletePreset(id int64) error {
 }
 
 // ExportPDF renders the given preset to a PDF chosen via save dialog.
-// It returns the saved path, or an empty string when cancelled.
-func (a *App) ExportPDF(presetID int64) (string, error) {
+// The format is "a4" (default) or "letter". It returns the saved path, or
+// an empty string when cancelled.
+func (a *App) ExportPDF(presetID int64, format string) (string, error) {
 	s, err := a.st()
 	if err != nil {
 		return "", err
@@ -266,7 +286,7 @@ func (a *App) ExportPDF(presetID int64) (string, error) {
 	if path == "" {
 		return "", nil
 	}
-	bytes, err := pdf.Generate(state)
+	bytes, err := pdf.Generate(state, format)
 	if err != nil {
 		return "", err
 	}

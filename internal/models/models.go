@@ -71,3 +71,11 @@ type ResumeState struct {
 	Presets  []Preset  `json:"presets"`
 	Sections []Section `json:"sections"`
 }
+
+// PageLayout describes the pagination of a resume for a page format:
+// the section IDs that start pages after the first, and the total page
+// count. The preview uses it to match the PDF export exactly.
+type PageLayout struct {
+	Breaks    []int64 `json:"breaks"`
+	PageCount int     `json:"pageCount"`
+}

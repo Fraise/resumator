@@ -20,7 +20,9 @@ export function DeleteSection(arg1:number):Promise<void>;
 
 export function DuplicatePreset(arg1:string,arg2:number):Promise<models.Preset>;
 
-export function ExportPDF(arg1:number):Promise<string>;
+export function ExportPDF(arg1:number,arg2:string):Promise<string>;
+
+export function GetPageLayout(arg1:number,arg2:string):Promise<models.PageLayout>;
 
 export function GetResumeState(arg1:number):Promise<models.ResumeState>;
 

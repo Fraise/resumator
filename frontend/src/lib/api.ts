@@ -1,5 +1,5 @@
 import * as backend from '../../wailsjs/go/main/App';
-import type { Item, Preset, ResumeState, Section } from './types';
+import type { Item, PageLayout, Preset, ResumeState, Section } from './types';
 
 // True when running inside the Wails webview with the Go backend bound.
 export const hasBackend =
@@ -8,6 +8,8 @@ export const hasBackend =
 export const api = {
 	getResumeState: (presetId: number) =>
 		backend.GetResumeState(presetId) as unknown as Promise<ResumeState>,
+	getPageLayout: (presetId: number, format: string) =>
+		backend.GetPageLayout(presetId, format) as unknown as Promise<PageLayout>,
 	updateProfile: (profile: { name: string; headline: string }) =>
 		backend.UpdateProfile(profile),
 	addSection: (type: string, title: string) => backend.AddSection(type, title),
@@ -40,7 +42,7 @@ export const api = {
 		backend.DuplicatePreset(name, sourceId) as unknown as Promise<Preset>,
 	renamePreset: (id: number, name: string) => backend.RenamePreset(id, name),
 	deletePreset: (id: number) => backend.DeletePreset(id),
-	exportPDF: (presetId: number) => backend.ExportPDF(presetId)
+	exportPDF: (presetId: number, format: string) => backend.ExportPDF(presetId, format)
 };
 
 export type { ResumeState, Section };

@@ -1,11 +1,43 @@
 <script lang="ts">
 	import { resume } from '../lib/stores/resume.svelte';
+	import { format, PAGE_SIZES } from '../lib/format.svelte';
 	import type { Item, Section } from '../lib/types';
+	import Icon from './Icon.svelte';
 
-	const state = $derived(resume.state);
+	const resumeState = $derived(resume.state);
+	const page = $derived(PAGE_SIZES[format.current]);
 	const visibleSections = $derived(
 		(resume.state?.sections ?? []).filter((s) => s.visible)
 	);
+
+	// Pages are chunked from the backend-computed breaks (the same engine
+	// as the PDF export), so preview pages match the exported document.
+	// The breaks guard tolerates a null payload.
+	const pages = $derived.by(() => {
+		const breaks = resume.pageLayout.breaks ?? [];
+		const result: Section[][] = [];
+		let current: Section[] = [];
+		for (const section of visibleSections) {
+			if (section.type === 'contact') continue;
+			if (current.length > 0 && breaks.includes(section.id)) {
+				result.push(current);
+				current = [];
+			}
+			current.push(section);
+		}
+		if (current.length > 0 || result.length === 0) {
+			result.push(current);
+		}
+		return result;
+	});
+
+	let currentPage = $state(0);
+	// Stays in range when content shrinks or presets switch.
+	$effect(() => {
+		if (currentPage > pages.length - 1) {
+			currentPage = Math.max(0, pages.length - 1);
+		}
+	});
 
 	function included<T extends { included: boolean }>(entries: T[] | null | undefined): T[] {
 		return entries?.filter((e) => e.included) ?? [];
@@ -73,79 +105,122 @@
 	}
 </script>
 
-<div class="preview-backdrop">
-	<div class="page">
-		{#if state}
-			<header class="resume-header">
-				<h1 class="name">{state.profile.name || 'Your Name'}</h1>
-				{#if state.profile.headline}
-					<div class="headline">{state.profile.headline}</div>
-				{/if}
-				{#each visibleSections as section (section.id)}
-					{#if section.type === 'contact' && contactLine(section)}
-						<div class="contact">{contactLine(section)}</div>
-					{/if}
-				{/each}
-			</header>
+{#snippet headerBlock()}
+	<header class="resume-header">
+		<h1 class="name">{resumeState?.profile.name || 'Your Name'}</h1>
+		{#if resumeState?.profile.headline}
+			<div class="headline">{resumeState.profile.headline}</div>
+		{/if}
+		{#each visibleSections as section (section.id)}
+			{#if section.type === 'contact' && contactLine(section)}
+				<div class="contact">{contactLine(section)}</div>
+			{/if}
+		{/each}
+	</header>
+{/snippet}
 
-			{#each visibleSections as section (section.id)}
-				{#if section.type !== 'contact'}
-					<section class="resume-section">
-						<h2
-							class="section-title"
-							style:color={section.titleColor || null}
-							style:border-bottom-color={section.lineColor || null}
-						>
-							{section.title}
-						</h2>
-						{#if section.type === 'skills'}
-							{#each skillGroups(section) as group}
-								{@const skills = group.skills
-									.filter((i) => i.included)
-									.map(skillText)
-									.filter(Boolean)}
-								{#if group.showTitle && group.title}
-									<div class="skill-group-title">{group.title}</div>
-								{/if}
-								{#if skills.length}
-									<p class="skills" class:titled={group.showTitle && !!group.title}>
-										{skills.join(', ')}
-									</p>
-								{/if}
-							{/each}
-						{:else}
-							{#each included(section.items) as item (item.id)}
-								{#if entryTitle(item, section.type as 'experience' | 'education' | 'custom') || dateRange(item)}
-									<div class="entry-head">
-										<span class="entry-title">{entryTitle(item, section.type as 'experience' | 'education' | 'custom')}</span>
-										<span class="entry-dates">{dateRange(item)}</span>
-									</div>
-								{/if}
-								{#if section.type === 'experience' && item.data.summary}
-									<p class="summary">{item.data.summary}</p>
-								{/if}
-								{#if section.type === 'custom' && item.data.text}
-									<p class="summary">{item.data.text}</p>
-								{/if}
-								{#if included(item.details ?? []).length}
-									<ul class="bullets">
-										{#each included(item.details ?? []) as detail (detail.id)}
-											{#if detail.text.trim()}
-												<li>{detail.text.trim()}</li>
-											{/if}
-										{/each}
-									</ul>
-								{/if}
-							{/each}
-						{/if}
-					</section>
+{#snippet sectionBlock(section: Section)}
+	<section class="resume-section">
+		<h2
+			class="section-title"
+			style:color={section.titleColor || null}
+			style:border-bottom-color={section.lineColor || null}
+		>
+			{section.title}
+		</h2>
+		{#if section.type === 'skills'}
+			{#each skillGroups(section) as group}
+				{@const skills = group.skills
+					.filter((i) => i.included)
+					.map(skillText)
+					.filter(Boolean)}
+				{#if group.showTitle && group.title}
+					<div class="skill-group-title">{group.title}</div>
+				{/if}
+				{#if skills.length}
+					<p class="skills" class:titled={group.showTitle && !!group.title}>
+						{skills.join(', ')}
+					</p>
 				{/if}
 			{/each}
+		{:else}
+			{#each included(section.items) as item (item.id)}
+				{#if entryTitle(item, section.type as 'experience' | 'education' | 'custom') || dateRange(item)}
+					<div class="entry-head">
+						<span class="entry-title">{entryTitle(item, section.type as 'experience' | 'education' | 'custom')}</span>
+						<span class="entry-dates">{dateRange(item)}</span>
+					</div>
+				{/if}
+				{#if section.type === 'experience' && item.data.summary}
+					<p class="summary">{item.data.summary}</p>
+				{/if}
+				{#if section.type === 'custom' && item.data.text}
+					<p class="summary">{item.data.text}</p>
+				{/if}
+				{#if included(item.details ?? []).length}
+					<ul class="bullets">
+						{#each included(item.details ?? []) as detail (detail.id)}
+							{#if detail.text.trim()}
+								<li>{detail.text.trim()}</li>
+							{/if}
+						{/each}
+					</ul>
+				{/if}
+			{/each}
+		{/if}
+	</section>
+{/snippet}
+
+<div class="preview-root">
+	<div class="preview-backdrop">
+		<!-- min-height rather than a fixed height: page breaks come from
+			the backend (PDF metrics), but the browser renders text
+			slightly taller, so the sheet grows instead of clipping. -->
+		<div class="page" style:width="{page.widthMm}mm" style:min-height="{page.heightMm}mm">
+			{#if currentPage === 0}
+				{@render headerBlock()}
+			{/if}
+			{#each pages[currentPage] ?? [] as section (section.id)}
+				{@render sectionBlock(section)}
+			{/each}
+		</div>
+	</div>
+
+	<div class="preview-footer">
+		{#if pages.length > 1}
+			<button
+				class="icon-btn"
+				disabled={currentPage === 0}
+				title="Previous page"
+				onclick={() => (currentPage -= 1)}
+			>
+				<Icon name="left" />
+			</button>
+			<span class="page-label">Page {currentPage + 1} of {pages.length}</span>
+			<button
+				class="icon-btn"
+				disabled={currentPage >= pages.length - 1}
+				title="Next page"
+				onclick={() => (currentPage += 1)}
+			>
+				<Icon name="right" />
+			</button>
+		{:else}
+			<span class="page-label" title="All visible sections fit on a single sheet">
+				Fits on one {page.label} sheet
+			</span>
 		{/if}
 	</div>
 </div>
 
 <style>
+	.preview-root {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		min-height: 0;
+	}
+
 	.preview-backdrop {
 		flex: 1;
 		overflow: auto;
@@ -153,65 +228,98 @@
 	}
 
 	.page {
-		width: 210mm;
 		max-width: 100%;
-		min-height: 297mm;
 		margin: 0 auto;
 		background: #ffffff;
-		color: #16161a;
-		padding: 14mm 14mm;
+		color: #000000;
+		/* Same font family and page margins as the PDF export
+		   (Helvetica metrics, 12mm top/bottom, 14mm left/right). */
+		font-family: Helvetica, 'Liberation Sans', Arial, sans-serif;
+		padding: 12mm 14mm;
 		box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18), 0 12px 36px rgba(0, 0, 0, 0.14);
 		border-radius: 2px;
 	}
 
+	.preview-footer {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 12px;
+		padding: 6px;
+		border-top: 1px solid var(--border);
+		background: var(--card);
+		flex-shrink: 0;
+	}
+
+	.page-label {
+		font-size: 12.5px;
+		color: var(--muted-foreground);
+		min-width: 90px;
+		text-align: center;
+	}
+
 	.resume-header {
 		text-align: center;
-		margin-bottom: 6mm;
+		margin-bottom: 0;
 	}
 
 	.name {
-		font-size: 21pt;
-		letter-spacing: 0.01em;
+		font-size: 18pt;
+		font-weight: 700;
+		line-height: 1;
 	}
 
 	.headline {
 		font-size: 10.5pt;
 		font-style: italic;
-		color: #64646e;
-		margin-top: 1mm;
+		color: #646970;
+		margin-top: 1.5mm;
+		line-height: 1.15;
 	}
 
 	.contact {
-		font-size: 9pt;
-		color: #64646e;
+		font-size: 9.5pt;
+		color: #646970;
 		margin-top: 2mm;
+		line-height: 1.15;
 	}
 
+	/* Section spacing mirrors the PDF: the title's Top padding of 3mm
+	   separates sections, the line sits 1.8mm below the title glyphs and
+	   content starts 1.2mm below the line. */
 	.resume-section {
-		margin-top: 5mm;
+		margin-top: 3mm;
 	}
 
 	.section-title {
-		font-size: 10pt;
+		font-size: 10.5pt;
+		font-weight: 700;
 		text-transform: uppercase;
-		letter-spacing: 0.08em;
-		border-bottom: 1px solid #c9c9cf;
-		padding-bottom: 1mm;
+		line-height: 1;
+		padding-bottom: 1.8mm;
+		border-bottom: 0.25mm solid #646970;
+		margin: 0;
 	}
 
-	.skills {
-		margin: 2mm 0 0;
-		font-size: 9.5pt;
+	.resume-section .section-title + * {
+		margin-top: 2.2mm;
 	}
 
-	.skills.titled {
-		margin-top: 0.5mm;
+	.resume-section .section-title + .entry-head {
+		margin-top: 3.2mm;
 	}
 
 	.skill-group-title {
 		font-weight: 700;
 		font-size: 9.5pt;
-		margin-top: 2mm;
+		margin-top: 1.5mm;
+		line-height: 1;
+	}
+
+	.skills {
+		margin: 1mm 0 0;
+		font-size: 9.5pt;
+		line-height: 1.15;
 	}
 
 	.entry-head {
@@ -219,33 +327,45 @@
 		justify-content: space-between;
 		align-items: baseline;
 		gap: 6mm;
-		margin-top: 2.5mm;
+		margin-top: 2mm;
 	}
 
 	.entry-title {
 		font-weight: 700;
 		font-size: 10pt;
+		line-height: 1;
 	}
 
 	.entry-dates {
 		font-size: 9pt;
-		color: #64646e;
+		color: #646970;
 		white-space: nowrap;
+		line-height: 1;
 	}
 
 	.summary {
 		margin: 1mm 0 0;
 		font-size: 9.5pt;
-		color: #3c3c44;
+		color: #646970;
+		line-height: 1.15;
 	}
 
 	.bullets {
-		margin: 1mm 0 0;
-		padding-left: 5mm;
+		list-style: none;
+		margin: 0.8mm 0 0;
+		padding-left: 3mm;
 		font-size: 9.5pt;
 	}
 
 	.bullets li {
-		margin: 0.5mm 0;
+		line-height: 1.15;
+	}
+
+	.bullets li::before {
+		content: '• ';
+	}
+
+	.bullets li + li {
+		margin-top: 0.8mm;
 	}
 </style>

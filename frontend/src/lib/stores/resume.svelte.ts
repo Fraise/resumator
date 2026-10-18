@@ -1,4 +1,5 @@
 import { api, hasBackend } from '../api';
+import { format } from '../format.svelte';
 import type { Item, ResumeState, Section, SectionType, Detail } from '../types';
 
 const SAVE_DEBOUNCE_MS = 400;
@@ -30,6 +31,12 @@ class ResumeStore {
 	selectedSectionId = $state(PROFILE_VIEW);
 	status = $state('');
 	error = $state('');
+	// Pagination computed by the backend (same engine as the PDF export),
+	// so the preview pages match the exported document.
+	pageLayout = $state<{ breaks: number[]; pageCount: number }>({
+		breaks: [],
+		pageCount: 1
+	});
 
 	get loaded() {
 		return this.state !== null;
@@ -49,6 +56,32 @@ class ResumeStore {
 
 	fail(e: unknown) {
 		this.error = String(e);
+	}
+
+	// Recomputes the page layout from the backend; called after content
+	// changes so the preview pagination tracks the PDF export. Responses
+	// are sequenced so a slow earlier request can never overwrite a
+	// newer one (e.g. when switching formats quickly).
+	#layoutSeq = 0;
+
+	async refreshLayout() {
+		const seq = ++this.#layoutSeq;
+		try {
+			const layout = await api.getPageLayout(this.activePresetId, format.current);
+			if (seq === this.#layoutSeq) {
+				this.pageLayout = layout;
+			}
+		} catch (e) {
+			if (seq === this.#layoutSeq) {
+				this.fail(e);
+			}
+		}
+	}
+
+	scheduleLayoutRefresh() {
+		debounce('page-layout', () => {
+			this.refreshLayout();
+		});
 	}
 
 	setStatus(text: string) {
@@ -72,6 +105,7 @@ class ResumeStore {
 			if (this.sections.length > 0) {
 				this.selectedSectionId = this.sections[0].id;
 			}
+			await this.refreshLayout();
 		} catch (e) {
 			this.fail(e);
 		}
@@ -85,6 +119,7 @@ class ResumeStore {
 			if (!stillThere) {
 				this.selectedSectionId = this.sections[0]?.id ?? PROFILE_VIEW;
 			}
+			await this.refreshLayout();
 		} catch (e) {
 			this.fail(e);
 		}
@@ -96,6 +131,7 @@ class ResumeStore {
 		} catch (e) {
 			this.fail(e);
 		}
+		this.scheduleLayoutRefresh();
 	}
 
 	// ---- profile -----------------------------------------------------
@@ -104,7 +140,10 @@ class ResumeStore {
 		if (!this.state) return;
 		this.state.profile[field] = value;
 		debounce('profile', () => {
-			api.updateProfile(this.state!.profile).catch((e) => this.fail(e));
+			api
+				.updateProfile(this.state!.profile)
+				.then(() => this.refreshLayout())
+				.catch((e) => this.fail(e));
 		});
 	}
 
@@ -125,7 +164,10 @@ class ResumeStore {
 		if (!section) return;
 		section.title = title;
 		debounce(`section-title:${sectionId}`, () => {
-			api.updateSection(sectionId, title).catch((e) => this.fail(e));
+			api
+				.updateSection(sectionId, title)
+				.then(() => this.refreshLayout())
+				.catch((e) => this.fail(e));
 		});
 	}
 
@@ -161,6 +203,7 @@ class ResumeStore {
 			.filter((s): s is Section => !!s);
 		try {
 			await api.reorderSections(ids);
+			this.scheduleLayoutRefresh();
 		} catch (e) {
 			this.fail(e);
 			await this.reload();
@@ -173,6 +216,7 @@ class ResumeStore {
 		section.visible = visible;
 		try {
 			await api.setSectionVisible(this.activePresetId, sectionId, visible);
+			this.scheduleLayoutRefresh();
 		} catch (e) {
 			this.fail(e);
 		}
@@ -192,7 +236,10 @@ class ResumeStore {
 	updateItemData(item: Item, field: string, value: string) {
 		item.data[field] = value;
 		debounce(`item:${item.id}`, () => {
-			api.updateItemData(item.id, item.data).catch((e) => this.fail(e));
+			api
+				.updateItemData(item.id, item.data)
+				.then(() => this.refreshLayout())
+				.catch((e) => this.fail(e));
 		});
 	}
 
@@ -214,6 +261,7 @@ class ResumeStore {
 			.filter((i): i is Item => !!i);
 		try {
 			await api.reorderItems(sectionId, ids);
+			this.scheduleLayoutRefresh();
 		} catch (e) {
 			this.fail(e);
 			await this.reload();
@@ -273,6 +321,7 @@ class ResumeStore {
 		if (item) item.included = included;
 		try {
 			await api.toggleItem(this.activePresetId, itemId, included);
+			this.scheduleLayoutRefresh();
 		} catch (e) {
 			this.fail(e);
 		}
@@ -300,7 +349,10 @@ class ResumeStore {
 	updateDetail(detail: Detail, text: string) {
 		detail.text = text;
 		debounce(`detail:${detail.id}`, () => {
-			api.updateDetail(detail.id, text).catch((e) => this.fail(e));
+			api
+				.updateDetail(detail.id, text)
+				.then(() => this.refreshLayout())
+				.catch((e) => this.fail(e));
 		});
 	}
 
@@ -318,6 +370,7 @@ class ResumeStore {
 		if (detail) detail.included = included;
 		try {
 			await api.toggleDetail(this.activePresetId, detailId, included);
+			this.scheduleLayoutRefresh();
 		} catch (e) {
 			this.fail(e);
 		}
@@ -332,6 +385,7 @@ class ResumeStore {
 			.filter((d): d is Detail => !!d);
 		try {
 			await api.reorderDetails(itemId, ids);
+			this.scheduleLayoutRefresh();
 		} catch (e) {
 			this.fail(e);
 			await this.reload();
@@ -395,7 +449,7 @@ class ResumeStore {
 
 	async exportPDF() {
 		try {
-			const path = await api.exportPDF(this.activePresetId);
+			const path = await api.exportPDF(this.activePresetId, format.current);
 			if (path) this.setStatus(`Exported to ${path}`);
 		} catch (e) {
 			this.fail(e);

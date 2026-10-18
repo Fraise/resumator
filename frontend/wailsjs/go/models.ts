@@ -56,6 +56,20 @@ export namespace models {
 		    return a;
 		}
 	}
+	export class PageLayout {
+	    breaks: number[];
+	    pageCount: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new PageLayout(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.breaks = source["breaks"];
+	        this.pageCount = source["pageCount"];
+	    }
+	}
 	export class Preset {
 	    id: number;
 	    name: string;

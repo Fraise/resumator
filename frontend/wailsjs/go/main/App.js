@@ -38,8 +38,12 @@ export function DuplicatePreset(arg1, arg2) {
   return window['go']['main']['App']['DuplicatePreset'](arg1, arg2);
 }
 
-export function ExportPDF(arg1) {
-  return window['go']['main']['App']['ExportPDF'](arg1);
+export function ExportPDF(arg1, arg2) {
+  return window['go']['main']['App']['ExportPDF'](arg1, arg2);
+}
+
+export function GetPageLayout(arg1, arg2) {
+  return window['go']['main']['App']['GetPageLayout'](arg1, arg2);
 }
 
 export function GetResumeState(arg1) {

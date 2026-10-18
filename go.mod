@@ -3,7 +3,9 @@ module resumator
 go 1.25.0
 
 require (
+	github.com/johnfercher/go-tree v1.1.0
 	github.com/johnfercher/maroto/v2 v2.3.3
+	github.com/phpdave11/gofpdf v1.4.3
 	github.com/wailsapp/wails/v2 v2.17.0
 	modernc.org/sqlite v1.59.0
 )
@@ -24,7 +26,6 @@ require (
 	github.com/hhrutter/pkcs7 v0.2.0 // indirect
 	github.com/hhrutter/tiff v1.0.2 // indirect
 	github.com/jchv/go-winloader v0.0.0-20210711035445-715c2860da7e // indirect
-	github.com/johnfercher/go-tree v1.1.0 // indirect
 	github.com/labstack/echo/v4 v4.15.3 // indirect
 	github.com/labstack/gommon v0.5.0 // indirect
 	github.com/leaanthony/go-ansi-parser v1.6.1 // indirect
@@ -36,7 +37,6 @@ require (
 	github.com/mattn/go-runewidth v0.0.21 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
 	github.com/pdfcpu/pdfcpu v0.11.1 // indirect
-	github.com/phpdave11/gofpdf v1.4.3 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect

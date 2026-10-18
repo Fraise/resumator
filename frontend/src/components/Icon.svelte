@@ -27,6 +27,10 @@
 		<path d="M4 10l4-4 4 4" />
 	{:else if name === 'down'}
 		<path d="M4 6l4 4 4-4" />
+	{:else if name === 'left'}
+		<path d="M10 4L6 8l4 4" />
+	{:else if name === 'right'}
+		<path d="M6 4l4 4-4 4" />
 	{:else if name === 'sun'}
 		<circle cx="8" cy="8" r="3" />
 		<path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.4 1.4M11.6 11.6L13 13M13 3l-1.4 1.4M4.4 11.6L3 13" />
