@@ -150,7 +150,7 @@
 								oninput={(e) =>
 									resume.updateItemData(divider, 'title', (e.currentTarget as HTMLInputElement).value)}
 							/>
-							<label class="include-label" title="Show this group title in the current resume">
+							<label class="include-label" title="Include this group (title and skills) in the current resume">
 								<input
 									class="include"
 									type="checkbox"

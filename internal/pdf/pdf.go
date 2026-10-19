@@ -40,6 +40,9 @@ const (
 	marginBottom = 12.0
 	marginLeft   = 14.0
 	marginRight  = 14.0
+	// Grid granularity for column sizes. A fine grid lets the skills
+	// line size its bold title column to the measured text width.
+	maxGrid = 1200
 )
 
 // pageDims returns the page dimensions in millimetres for a format.
@@ -64,6 +67,7 @@ func Generate(state models.ResumeState, format string) ([]byte, error) {
 		WithLeftMargin(marginLeft).
 		WithRightMargin(marginRight).
 		WithPageSize(size).
+		WithMaxGridSize(maxGrid).
 		Build()
 	m := maroto.New(cfg)
 
@@ -226,13 +230,16 @@ func (d *docBuilder) lineRow(height float64, prop props.Line) {
 // right-aligned date range (3 columns); its height is the tallest of
 // the two cells, as maroto computes for auto rows.
 func (d *docBuilder) titleDates(title string, titleProp props.Text, dates string, datesProp props.Text) {
-	w9 := d.contentWidth * 9.0 / 12.0
-	w3 := d.contentWidth * 3.0 / 12.0
+	w9 := d.contentWidth * 900.0 / maxGrid
+	w3 := d.contentWidth * 300.0 / maxGrid
 	height := d.meas.textHeight(title, titleProp, w9)
 	if h := d.meas.textHeight(dates, datesProp, w3); h > height {
 		height = h
 	}
-	r := row.New().Add(text.NewCol(9, title, titleProp), text.NewCol(3, dates, datesProp))
+	r := row.New().Add(
+		text.NewCol(900, title, titleProp),
+		text.NewCol(300, dates, datesProp),
+	)
 	d.rows = append(d.rows, blockRow{row: r, height: height})
 }
 
@@ -332,19 +339,23 @@ func hexToColor(hex string) *props.Color {
 
 func (d *docBuilder) skills(section models.Section) {
 	// Skill groups are marker items with a divider flag; the skills listed
-	// after a marker belong to its group and render on their own line.
+	// after a marker belong to its group. Every group renders as one row
+	// with the title right-aligned in a shared column (sized to the
+	// widest title) and the skills left-aligned, so titles line up on
+	// their right edge and skills share a left edge. A group is hidden
+	// entirely when its marker is not included in the preset.
 	type skillGroup struct {
-		title  string
-		skills []string
+		title   string
+		skills  []string
+		visible bool
 	}
-	groups := []skillGroup{{}}
+	groups := []skillGroup{{visible: true}}
 	for _, it := range section.Items {
 		if boolVal(it.Data, "divider") {
-			title := ""
-			if it.Included {
-				title = strings.TrimSpace(str(it.Data, "title"))
-			}
-			groups = append(groups, skillGroup{title: title})
+			groups = append(groups, skillGroup{
+				title:   strings.TrimSpace(str(it.Data, "title")),
+				visible: it.Included,
+			})
 			continue
 		}
 		if !it.Included {
@@ -361,17 +372,65 @@ func (d *docBuilder) skills(section models.Section) {
 			g.skills = append(g.skills, name)
 		}
 	}
+
+	var visible []skillGroup
 	for _, g := range groups {
+		if g.visible && (g.title != "" || len(g.skills) > 0) {
+			visible = append(visible, g)
+		}
+	}
+	if len(visible) == 0 {
+		return
+	}
+
+	titleProp := props.Text{Style: fontstyle.Bold, Size: 9.5, Top: 1, Align: align.Right}
+	skillsProp := props.Text{Size: 9.5, Top: 1, VerticalPadding: 0.5}
+	// The gap between a title and its skills is one space wide, applied
+	// as the skills column's left padding (the title is right-aligned
+	// against its column edge).
+	gap := d.meas.textWidth(" ", skillsProp)
+	skillsProp.Left = gap
+
+	titleWidth := 0.0
+	for _, g := range visible {
 		if g.title != "" {
-			d.autoText(g.title, props.Text{
-				Style: fontstyle.Bold, Size: 9.5, Top: 1.5,
-			})
+			if w := d.meas.textWidth(g.title, titleProp); w > titleWidth {
+				titleWidth = w
+			}
 		}
-		if len(g.skills) > 0 {
-			d.autoText(strings.Join(g.skills, ", "), props.Text{
-				Size: 9.5, Top: 1, VerticalPadding: 0.5,
-			})
+	}
+	titleUnits := 0
+	if titleWidth > 0 {
+		titleUnits = int(math.Ceil(titleWidth / d.contentWidth * maxGrid))
+		if titleUnits < 30 {
+			titleUnits = 30
 		}
+		if titleUnits > maxGrid-60 {
+			titleUnits = maxGrid - 60
+		}
+	}
+	skillsUnits := maxGrid - titleUnits
+	wTitle := d.contentWidth * float64(titleUnits) / maxGrid
+	wSkills := d.contentWidth * float64(skillsUnits) / maxGrid
+
+	for _, g := range visible {
+		joined := strings.Join(g.skills, ", ")
+		height := d.meas.textHeight(joined, skillsProp, wSkills)
+		if g.title != "" {
+			if h := d.meas.textHeight(g.title, titleProp, wTitle); h > height {
+				height = h
+			}
+		}
+		var r core.Row
+		if titleUnits == 0 {
+			r = row.New().Add(text.NewCol(maxGrid, joined, skillsProp))
+		} else {
+			r = row.New().Add(
+				text.NewCol(titleUnits, g.title, titleProp),
+				text.NewCol(skillsUnits, joined, skillsProp),
+			)
+		}
+		d.rows = append(d.rows, blockRow{row: r, height: height})
 	}
 }
 

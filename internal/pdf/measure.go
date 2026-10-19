@@ -30,6 +30,16 @@ func newMeasurer() *measurer {
 	}
 }
 
+// textWidth measures the rendered width of a string in millimetres.
+func (m *measurer) textWidth(value string, prop props.Text) float64 {
+	family := prop.Family
+	if family == "" {
+		family = fontfamily.Arial
+	}
+	m.pdf.SetFont(family, string(prop.Style), prop.Size)
+	return m.pdf.GetStringWidth(m.translator(value))
+}
+
 // textHeight mirrors maroto's text component GetHeight: the wrapped line
 // count, font height and the top/bottom/vertical paddings.
 func (m *measurer) textHeight(value string, prop props.Text, colWidth float64) float64 {

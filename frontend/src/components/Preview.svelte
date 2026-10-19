@@ -59,15 +59,15 @@
 
 	function skillGroups(
 		section: Section
-	): { title: string; showTitle: boolean; skills: Item[] }[] {
-		const groups: { title: string; showTitle: boolean; skills: Item[] }[] = [
-			{ title: '', showTitle: false, skills: [] }
+	): { title: string; visible: boolean; skills: Item[] }[] {
+		const groups: { title: string; visible: boolean; skills: Item[] }[] = [
+			{ title: '', visible: true, skills: [] }
 		];
 		for (const item of section.items ?? []) {
 			if (item.data.divider) {
 				groups.push({
 					title: String(item.data.title ?? '').trim(),
-					showTitle: item.included,
+					visible: item.included,
 					skills: []
 				});
 			} else {
@@ -129,20 +129,18 @@
 			{section.title}
 		</h2>
 		{#if section.type === 'skills'}
-			{#each skillGroups(section) as group}
-				{@const skills = group.skills
-					.filter((i) => i.included)
-					.map(skillText)
-					.filter(Boolean)}
-				{#if group.showTitle && group.title}
-					<div class="skill-group-title">{group.title}</div>
-				{/if}
-				{#if skills.length}
-					<p class="skills" class:titled={group.showTitle && !!group.title}>
-						{skills.join(', ')}
-					</p>
-				{/if}
-			{/each}
+			<div class="skills-groups">
+				{#each skillGroups(section) as group}
+					{@const skills = group.skills
+						.filter((i) => i.included)
+						.map(skillText)
+						.filter(Boolean)}
+					{#if group.visible && (group.title || skills.length)}
+						<span class="skills-group-title">{group.title}</span>
+						<span class="skills">{skills.join(', ')}</span>
+					{/if}
+				{/each}
+			</div>
 		{:else}
 			{#each included(section.items) as item (item.id)}
 				{#if entryTitle(item, section.type as 'experience' | 'education' | 'custom') || dateRange(item)}
@@ -309,17 +307,25 @@
 		margin-top: 3.2mm;
 	}
 
-	.skill-group-title {
-		font-weight: 700;
+	/* Two-column layout: titles right-aligned in a shared column sized to
+	   the widest title, skills left-aligned at a common edge. */
+	.skills-groups {
+		display: grid;
+		grid-template-columns: max-content 1fr;
+		column-gap: 1mm;
+		row-gap: 1mm;
 		font-size: 9.5pt;
-		margin-top: 1.5mm;
-		line-height: 1;
 	}
 
-	.skills {
-		margin: 1mm 0 0;
-		font-size: 9.5pt;
+	.skills-groups .skills-group-title {
+		font-weight: 700;
+		text-align: right;
 		line-height: 1.15;
+	}
+
+	.skills-groups .skills {
+		line-height: 1.15;
+		margin: 0;
 	}
 
 	.entry-head {
