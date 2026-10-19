@@ -1,5 +1,6 @@
 import * as backend from '../../wailsjs/go/main/App';
-import type { Item, PageLayout, Preset, ResumeState, Section } from './types';
+import type { models } from '../../wailsjs/go/models';
+import type { Item, PageLayout, Preset, ResumeState, Section, TextStyles } from './types';
 
 // True when running inside the Wails webview with the Go backend bound.
 export const hasBackend =
@@ -12,6 +13,8 @@ export const api = {
 		backend.GetPageLayout(presetId, format) as unknown as Promise<PageLayout>,
 	updateProfile: (profile: { name: string; headline: string }) =>
 		backend.UpdateProfile(profile),
+	updateTextStyles: (styles: TextStyles) =>
+		backend.UpdateTextStyles(styles as unknown as models.TextStyles),
 	addSection: (type: string, title: string) => backend.AddSection(type, title),
 	updateSection: (id: number, title: string) => backend.UpdateSection(id, title),
 	deleteSection: (id: number) => backend.DeleteSection(id),

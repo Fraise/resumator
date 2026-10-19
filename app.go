@@ -80,6 +80,15 @@ func (a *App) UpdateProfile(profile models.Profile) error {
 	return s.UpdateProfile(profile)
 }
 
+// UpdateTextStyles saves the global typography applied to every resume.
+func (a *App) UpdateTextStyles(styles models.TextStyles) error {
+	s, err := a.st()
+	if err != nil {
+		return err
+	}
+	return s.UpdateTextStyles(styles)
+}
+
 // AddSection creates a section and returns its id.
 func (a *App) AddSection(sectionType, title string) (int64, error) {
 	s, err := a.st()

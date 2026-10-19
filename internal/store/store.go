@@ -100,6 +100,21 @@ func (s *Store) migrate() error {
 			included INTEGER NOT NULL DEFAULT 0,
 			PRIMARY KEY (preset_id, item_id, detail_id)
 		)`,
+		`CREATE TABLE IF NOT EXISTS text_styles (
+			id INTEGER PRIMARY KEY CHECK (id = 1),
+			section_title_size REAL NOT NULL DEFAULT 10.5,
+			section_title_bold INTEGER NOT NULL DEFAULT 1,
+			section_title_italic INTEGER NOT NULL DEFAULT 0,
+			entry_title_size REAL NOT NULL DEFAULT 10,
+			entry_title_bold INTEGER NOT NULL DEFAULT 1,
+			entry_title_italic INTEGER NOT NULL DEFAULT 0,
+			entry_dates_size REAL NOT NULL DEFAULT 9,
+			entry_dates_bold INTEGER NOT NULL DEFAULT 0,
+			entry_dates_italic INTEGER NOT NULL DEFAULT 0,
+			body_size REAL NOT NULL DEFAULT 9.5,
+			body_bold INTEGER NOT NULL DEFAULT 0,
+			body_italic INTEGER NOT NULL DEFAULT 0
+		)`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_preset_selections_refs
 			ON preset_selections (preset_id, ifnull(item_id, 0), ifnull(detail_id, 0))`,
 	}

@@ -1,6 +1,6 @@
 import { api, hasBackend } from '../api';
 import { format } from '../format.svelte';
-import type { Item, ResumeState, Section, SectionType, Detail } from '../types';
+import type { Item, ResumeState, Section, SectionType, Detail, StyleRole, TextStyle } from '../types';
 
 const SAVE_DEBOUNCE_MS = 400;
 
@@ -142,6 +142,20 @@ class ResumeStore {
 		debounce('profile', () => {
 			api
 				.updateProfile(this.state!.profile)
+				.then(() => this.refreshLayout())
+				.catch((e) => this.fail(e));
+		});
+	}
+
+	// ---- typography (global, applies to all resumes) -------------------
+
+	updateTextStyle(role: StyleRole, patch: Partial<TextStyle>) {
+		const styles = this.state?.styles;
+		if (!styles) return;
+		Object.assign(styles[role], patch);
+		debounce(`text-style:${role}`, () => {
+			api
+				.updateTextStyles(styles)
 				.then(() => this.refreshLayout())
 				.catch((e) => this.fail(e));
 		});

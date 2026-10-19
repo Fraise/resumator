@@ -90,6 +90,10 @@ func (s *Store) GetResumeState(presetID int64) (models.ResumeState, error) {
 		return state, err
 	}
 	state.Profile = profile
+	state.Styles, err = s.GetTextStyles()
+	if err != nil {
+		return state, err
+	}
 	state.Presets, err = s.ListPresets()
 	if err != nil {
 		return state, err

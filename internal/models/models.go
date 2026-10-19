@@ -65,11 +65,38 @@ type Preset struct {
 	CreatedAt string `json:"createdAt"`
 }
 
+// TextStyle describes the typography of one text role on the resume.
+type TextStyle struct {
+	Size   float64 `json:"size"`
+	Bold   bool    `json:"bold"`
+	Italic bool    `json:"italic"`
+}
+
+// TextStyles holds the typography of every text role. These settings
+// are global: they apply to every section of every preset.
+type TextStyles struct {
+	SectionTitle TextStyle `json:"sectionTitle"`
+	EntryTitle   TextStyle `json:"entryTitle"`
+	EntryDates   TextStyle `json:"entryDates"`
+	Body         TextStyle `json:"body"`
+}
+
+// DefaultTextStyles returns the default typography.
+func DefaultTextStyles() TextStyles {
+	return TextStyles{
+		SectionTitle: TextStyle{Size: 10.5, Bold: true},
+		EntryTitle:   TextStyle{Size: 10, Bold: true},
+		EntryDates:   TextStyle{Size: 9},
+		Body:         TextStyle{Size: 9.5},
+	}
+}
+
 // ResumeState is the full application state resolved for one preset.
 type ResumeState struct {
-	Profile  Profile   `json:"profile"`
-	Presets  []Preset  `json:"presets"`
-	Sections []Section `json:"sections"`
+	Profile  Profile    `json:"profile"`
+	Styles   TextStyles  `json:"styles"`
+	Presets  []Preset   `json:"presets"`
+	Sections []Section  `json:"sections"`
 }
 
 // PageLayout describes the pagination of a resume for a page format:

@@ -49,3 +49,5 @@ export function UpdateItemData(arg1:number,arg2:Record<string, any>):Promise<voi
 export function UpdateProfile(arg1:models.Profile):Promise<void>;
 
 export function UpdateSection(arg1:number,arg2:string):Promise<void>;
+
+export function UpdateTextStyles(arg1:models.TextStyles):Promise<void>;

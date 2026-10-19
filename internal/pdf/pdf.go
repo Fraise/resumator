@@ -156,9 +156,14 @@ func layout(blocks [][]blockRow, pageHeight float64) [][]int {
 // ID owning each block (0 for the header).
 func buildBlocks(state models.ResumeState, format string) ([][]blockRow, []int64) {
 	pageWidth, _ := pageDims(format)
+	styles := state.Styles
+	if styles.SectionTitle.Size == 0 {
+		styles = models.DefaultTextStyles()
+	}
 	doc := &docBuilder{
 		meas:         newMeasurer(),
 		contentWidth: pageWidth - marginLeft - marginRight,
+		styles:       styles,
 	}
 
 	var blocks [][]blockRow
@@ -212,7 +217,22 @@ func (d *docBuilder) take() []blockRow {
 type docBuilder struct {
 	meas         *measurer
 	contentWidth float64
+	styles       models.TextStyles
 	rows         []blockRow
+}
+
+// fontStyleOf maps bold/italic flags to a maroto font style.
+func fontStyleOf(bold, italic bool) fontstyle.Type {
+	switch {
+	case bold && italic:
+		return fontstyle.BoldItalic
+	case bold:
+		return fontstyle.Bold
+	case italic:
+		return fontstyle.Italic
+	default:
+		return fontstyle.Normal
+	}
 }
 
 // autoText appends a full-width automatic text row.
@@ -308,7 +328,9 @@ func (d *docBuilder) sectionTitle(title, titleColor, lineColor string) {
 		return
 	}
 	d.autoText(strings.ToUpper(title), props.Text{
-		Style: fontstyle.Bold, Size: 10.5, Top: 3, Color: hexToColor(titleColor),
+		Style: fontStyleOf(d.styles.SectionTitle.Bold, d.styles.SectionTitle.Italic),
+		Size:  d.styles.SectionTitle.Size,
+		Top:   3, Color: hexToColor(titleColor),
 	})
 	// The line row is 3mm tall with the line drawn at 60% height, which
 	// leaves roughly 1mm of air between the title glyphs and the line
@@ -383,8 +405,11 @@ func (d *docBuilder) skills(section models.Section) {
 		return
 	}
 
-	titleProp := props.Text{Style: fontstyle.Bold, Size: 9.5, Top: 1, Align: align.Right}
-	skillsProp := props.Text{Size: 9.5, Top: 1, VerticalPadding: 0.5}
+	titleProp := props.Text{Style: fontstyle.Bold, Size: d.styles.Body.Size, Top: 1, Align: align.Right}
+	skillsProp := props.Text{
+		Size: d.styles.Body.Size, Style: fontStyleOf(d.styles.Body.Bold, d.styles.Body.Italic),
+		Top: 1, VerticalPadding: 0.5,
+	}
 	// The gap between a title and its skills is one space wide, applied
 	// as the skills column's left padding (the title is right-aligned
 	// against its column edge).
@@ -464,7 +489,8 @@ func (d *docBuilder) experience(section models.Section) {
 		d.entryTitle(title, dateRange(it.Data))
 		if summary := strings.TrimSpace(str(it.Data, "summary")); summary != "" {
 			d.autoText(summary, props.Text{
-				Size: 9.5, Color: gray, Top: 1, VerticalPadding: 0.5,
+				Size: d.styles.Body.Size, Style: fontStyleOf(d.styles.Body.Bold, d.styles.Body.Italic),
+				Color: gray, Top: 1, VerticalPadding: 0.5,
 			})
 		}
 		d.details(it.Details)
@@ -506,12 +532,14 @@ func (d *docBuilder) customItems(section models.Section) {
 		}
 		if label := strings.TrimSpace(str(it.Data, "label")); label != "" {
 			d.autoText(label, props.Text{
-				Style: fontstyle.Bold, Size: 10, Top: 2,
+				Style: fontStyleOf(d.styles.EntryTitle.Bold, d.styles.EntryTitle.Italic),
+				Size:  d.styles.EntryTitle.Size, Top: 2,
 			})
 		}
 		if body := strings.TrimSpace(str(it.Data, "text")); body != "" {
 			d.autoText(body, props.Text{
-				Size: 9.5, Top: 1, VerticalPadding: 0.5,
+				Size: d.styles.Body.Size, Style: fontStyleOf(d.styles.Body.Bold, d.styles.Body.Italic),
+				Top: 1, VerticalPadding: 0.5,
 			})
 		}
 		d.details(it.Details)
@@ -529,16 +557,24 @@ func (d *docBuilder) entryTitle(title, dates string) {
 		return
 	case title == "":
 		d.titleDates("", props.Text{}, dates, props.Text{
-			Size: 9, Align: align.Right, Color: gray, Top: 2.5,
+			Size: d.styles.EntryDates.Size, Style: fontStyleOf(d.styles.EntryDates.Bold, d.styles.EntryDates.Italic),
+			Align: align.Right, Color: gray, Top: 2.5,
 		})
 	case dates == "":
 		d.titleDates(title, props.Text{
-			Style: fontstyle.Bold, Size: 10, Top: 2,
+			Style: fontStyleOf(d.styles.EntryTitle.Bold, d.styles.EntryTitle.Italic),
+			Size:  d.styles.EntryTitle.Size, Top: 2,
 		}, "", props.Text{})
 	default:
 		d.titleDates(
-			title, props.Text{Style: fontstyle.Bold, Size: 10, Top: 2},
-			dates, props.Text{Size: 9, Align: align.Right, Color: gray, Top: 2.5},
+			title, props.Text{
+				Style: fontStyleOf(d.styles.EntryTitle.Bold, d.styles.EntryTitle.Italic),
+				Size:  d.styles.EntryTitle.Size, Top: 2,
+			},
+			dates, props.Text{
+				Size: d.styles.EntryDates.Size, Style: fontStyleOf(d.styles.EntryDates.Bold, d.styles.EntryDates.Italic),
+				Align: align.Right, Color: gray, Top: 2.5,
+			},
 		)
 	}
 }
@@ -549,7 +585,8 @@ func (d *docBuilder) details(details []models.Detail) {
 			continue
 		}
 		d.autoText("• "+strings.TrimSpace(det.Text), props.Text{
-			Size: 9.5, Left: 3, Top: 0.8, VerticalPadding: 0.5,
+			Size: d.styles.Body.Size, Style: fontStyleOf(d.styles.Body.Bold, d.styles.Body.Italic),
+			Left: 3, Top: 0.8, VerticalPadding: 0.5,
 		})
 	}
 }

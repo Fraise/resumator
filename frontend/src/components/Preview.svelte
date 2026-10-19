@@ -5,6 +5,7 @@
 	import Icon from './Icon.svelte';
 
 	const resumeState = $derived(resume.state);
+	const styles = $derived(resume.state?.styles);
 	const page = $derived(PAGE_SIZES[format.current]);
 	const visibleSections = $derived(
 		(resume.state?.sections ?? []).filter((s) => s.visible)
@@ -174,7 +175,23 @@
 		<!-- min-height rather than a fixed height: page breaks come from
 			the backend (PDF metrics), but the browser renders text
 			slightly taller, so the sheet grows instead of clipping. -->
-		<div class="page" style:width="{page.widthMm}mm" style:min-height="{page.heightMm}mm">
+		<div
+			class="page"
+			style:width="{page.widthMm}mm"
+			style:min-height="{page.heightMm}mm"
+			style:--font-section-title="{styles?.sectionTitle.size ?? 10.5}pt"
+			style:--weight-section-title={styles?.sectionTitle.bold ? '700' : '400'}
+			style:--slant-section-title={styles?.sectionTitle.italic ? 'italic' : 'normal'}
+			style:--font-entry-title="{styles?.entryTitle.size ?? 10}pt"
+			style:--weight-entry-title={styles?.entryTitle.bold ? '700' : '400'}
+			style:--slant-entry-title={styles?.entryTitle.italic ? 'italic' : 'normal'}
+			style:--font-entry-dates="{styles?.entryDates.size ?? 9}pt"
+			style:--weight-entry-dates={styles?.entryDates.bold ? '700' : '400'}
+			style:--slant-entry-dates={styles?.entryDates.italic ? 'italic' : 'normal'}
+			style:--font-body="{styles?.body.size ?? 9.5}pt"
+			style:--weight-body={styles?.body.bold ? '700' : '400'}
+			style:--slant-body={styles?.body.italic ? 'italic' : 'normal'}
+		>
 			{#if currentPage === 0}
 				{@render headerBlock()}
 			{/if}
@@ -234,6 +251,20 @@
 		   (Helvetica metrics, 12mm top/bottom, 14mm left/right). */
 		font-family: Helvetica, 'Liberation Sans', Arial, sans-serif;
 		padding: 12mm 14mm;
+		/* Typography role variables; overridden inline from the saved
+		   text styles. */
+		--font-section-title: 10.5pt;
+		--weight-section-title: 700;
+		--slant-section-title: normal;
+		--font-entry-title: 10pt;
+		--weight-entry-title: 700;
+		--slant-entry-title: normal;
+		--font-entry-dates: 9pt;
+		--weight-entry-dates: 400;
+		--slant-entry-dates: normal;
+		--font-body: 9.5pt;
+		--weight-body: 400;
+		--slant-body: normal;
 		box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18), 0 12px 36px rgba(0, 0, 0, 0.14);
 		border-radius: 2px;
 	}
@@ -290,8 +321,9 @@
 	}
 
 	.section-title {
-		font-size: 10.5pt;
-		font-weight: 700;
+		font-size: var(--font-section-title);
+		font-weight: var(--weight-section-title);
+		font-style: var(--slant-section-title);
 		text-transform: uppercase;
 		line-height: 1;
 		padding-bottom: 1.8mm;
@@ -314,13 +346,16 @@
 		grid-template-columns: max-content 1fr;
 		column-gap: 1mm;
 		row-gap: 1mm;
-		font-size: 9.5pt;
+		font-size: var(--font-body);
+		font-weight: var(--weight-body);
+		font-style: var(--slant-body);
 	}
 
 	.skills-groups .skills-group-title {
 		font-weight: 700;
 		text-align: right;
 		line-height: 1.15;
+		font-style: normal;
 	}
 
 	.skills-groups .skills {
@@ -337,13 +372,16 @@
 	}
 
 	.entry-title {
-		font-weight: 700;
-		font-size: 10pt;
+		font-weight: var(--weight-entry-title);
+		font-style: var(--slant-entry-title);
+		font-size: var(--font-entry-title);
 		line-height: 1;
 	}
 
 	.entry-dates {
-		font-size: 9pt;
+		font-size: var(--font-entry-dates);
+		font-weight: var(--weight-entry-dates);
+		font-style: var(--slant-entry-dates);
 		color: #646970;
 		white-space: nowrap;
 		line-height: 1;
@@ -351,7 +389,9 @@
 
 	.summary {
 		margin: 1mm 0 0;
-		font-size: 9.5pt;
+		font-size: var(--font-body);
+		font-weight: var(--weight-body);
+		font-style: var(--slant-body);
 		color: #646970;
 		line-height: 1.15;
 	}
@@ -360,7 +400,9 @@
 		list-style: none;
 		margin: 0.8mm 0 0;
 		padding-left: 3mm;
-		font-size: 9.5pt;
+		font-size: var(--font-body);
+		font-weight: var(--weight-body);
+		font-style: var(--slant-body);
 	}
 
 	.bullets li {

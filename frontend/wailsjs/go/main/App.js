@@ -97,3 +97,7 @@ export function UpdateProfile(arg1) {
 export function UpdateSection(arg1, arg2) {
   return window['go']['main']['App']['UpdateSection'](arg1, arg2);
 }
+
+export function UpdateTextStyles(arg1) {
+  return window['go']['main']['App']['UpdateTextStyles'](arg1);
+}
