@@ -86,24 +86,12 @@ export namespace models {
 	        this.createdAt = source["createdAt"];
 	    }
 	}
-	export class Profile {
-	    name: string;
-	    headline: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new Profile(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.name = source["name"];
-	        this.headline = source["headline"];
-	    }
-	}
 	export class Section {
 	    id: number;
 	    type: string;
 	    title: string;
+	    name: string;
+	    headline: string;
 	    titleColor: string;
 	    lineColor: string;
 	    visible: boolean;
@@ -118,6 +106,8 @@ export namespace models {
 	        this.id = source["id"];
 	        this.type = source["type"];
 	        this.title = source["title"];
+	        this.name = source["name"];
+	        this.headline = source["headline"];
 	        this.titleColor = source["titleColor"];
 	        this.lineColor = source["lineColor"];
 	        this.visible = source["visible"];
@@ -195,7 +185,6 @@ export namespace models {
 		}
 	}
 	export class ResumeState {
-	    profile: Profile;
 	    styles: TextStyles;
 	    presets: Preset[];
 	    sections: Section[];
@@ -206,7 +195,6 @@ export namespace models {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.profile = this.convertValues(source["profile"], Profile);
 	        this.styles = this.convertValues(source["styles"], TextStyles);
 	        this.presets = this.convertValues(source["presets"], Preset);
 	        this.sections = this.convertValues(source["sections"], Section);

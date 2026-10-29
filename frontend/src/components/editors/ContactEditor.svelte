@@ -10,6 +10,27 @@
 	const addLabel = $derived(section.items.length === 0 ? 'Add your first contact detail' : 'Add contact detail');
 </script>
 
+<p class="hint">Your name and headline appear at the top of every resume.</p>
+
+<label class="field">
+	<span>Full name</span>
+	<input
+		placeholder="Jane Doe"
+		value={section.name}
+		oninput={(e) =>
+			resume.updateContactHeader(section.id, 'name', (e.currentTarget as HTMLInputElement).value)}
+	/>
+</label>
+<label class="field">
+	<span>Headline</span>
+	<input
+		placeholder="Senior Software Engineer"
+		value={section.headline}
+		oninput={(e) =>
+			resume.updateContactHeader(section.id, 'headline', (e.currentTarget as HTMLInputElement).value)}
+	/>
+</label>
+
 <SortableList items={section.items} reorder={(ids) => resume.reorderItems(section.id, ids)}>
 	{#snippet row(item: Item)}
 		<ItemCard {item}>
@@ -41,6 +62,24 @@
 </button>
 
 <style>
+	.hint {
+		margin: 0 0 12px;
+		color: var(--muted-foreground);
+		font-size: 13px;
+	}
+
+	.field {
+		display: block;
+		margin-bottom: 12px;
+	}
+
+	.field > span {
+		display: block;
+		font-size: 12px;
+		color: var(--muted-foreground);
+		margin-bottom: 3px;
+	}
+
 	.fields {
 		display: grid;
 		grid-template-columns: 1fr 2fr;

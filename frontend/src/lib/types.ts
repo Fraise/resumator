@@ -1,10 +1,5 @@
 export type SectionType = 'contact' | 'skills' | 'experience' | 'education' | 'custom';
 
-export interface Profile {
-	name: string;
-	headline: string;
-}
-
 export interface Detail {
 	id: number;
 	itemId: number;
@@ -24,6 +19,10 @@ export interface Section {
 	id: number;
 	type: SectionType;
 	title: string;
+	/** Contact sections only: full name shown at the top of the resume. */
+	name: string;
+	/** Contact sections only: headline shown under the name. */
+	headline: string;
 	/** Optional "#rrggbb"; empty = default color. */
 	titleColor?: string;
 	/** Optional "#rrggbb"; empty = default color. */
@@ -63,7 +62,6 @@ export const DEFAULT_TEXT_STYLES: TextStyles = {
 };
 
 export interface ResumeState {
-	profile: Profile;
 	styles: TextStyles;
 	presets: Preset[];
 	sections: Section[];

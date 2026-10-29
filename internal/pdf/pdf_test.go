@@ -16,11 +16,11 @@ import (
 func sampleState() models.ResumeState {
 	longText := strings.Repeat("Led a cross-functional initiative that delivered measurable results across many teams and stakeholders. ", 12)
 	state := models.ResumeState{
-		Profile: models.Profile{Name: "Ada Lovelace", Headline: "Engineer & Analyst"},
-		Styles:  models.DefaultTextStyles(),
+		Styles: models.DefaultTextStyles(),
 		Sections: []models.Section{
 			{
 				ID: 1, Type: "contact", Title: "Contact", Visible: true,
+				Name: "Ada Lovelace", Headline: "Engineer & Analyst",
 				Items: []models.Item{
 					{ID: 11, Included: true, Data: map[string]interface{}{"label": "Email", "value": "ada@example.com"}},
 					{ID: 12, Included: true, Data: map[string]interface{}{"label": "Phone", "value": "+1 555 0100"}},

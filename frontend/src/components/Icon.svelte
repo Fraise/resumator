@@ -41,6 +41,10 @@
 	{:else if name === 'user'}
 		<circle cx="8" cy="5.5" r="2.8" />
 		<path d="M2.5 14c.7-2.8 2.9-4.2 5.5-4.2s4.8 1.4 5.5 4.2" />
+	{:else if name === 'type'}
+		<path d="M3.5 4.5h9" />
+		<path d="M8 4.5v9" />
+		<path d="M5.5 13.5h5" />
 	{:else if name === 'copy'}
 		<rect x="5.5" y="5.5" width="8" height="8" rx="1.5" />
 		<path d="M10.5 3.5v-1a1 1 0 0 0-1-1h-7a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h1" />

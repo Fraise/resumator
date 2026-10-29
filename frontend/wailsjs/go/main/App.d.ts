@@ -42,11 +42,11 @@ export function ToggleDetail(arg1:number,arg2:number,arg3:boolean):Promise<void>
 
 export function ToggleItem(arg1:number,arg2:number,arg3:boolean):Promise<void>;
 
+export function UpdateContactHeader(arg1:number,arg2:string,arg3:string):Promise<void>;
+
 export function UpdateDetail(arg1:number,arg2:string):Promise<void>;
 
 export function UpdateItemData(arg1:number,arg2:Record<string, any>):Promise<void>;
-
-export function UpdateProfile(arg1:models.Profile):Promise<void>;
 
 export function UpdateSection(arg1:number,arg2:string):Promise<void>;
 

@@ -258,6 +258,109 @@ func TestDeleteNotFound(t *testing.T) {
 	}
 }
 
+// TestMigrateLegacyProfileIntoContactSection simulates a database from
+// before the global profile was removed: the profile table exists and
+// sections have no name/headline columns. After migrate, the values
+// must land on the first contact section and the table must be gone.
+func TestMigrateLegacyProfileIntoContactSection(t *testing.T) {
+	dsn := "file:" + filepath.Join(t.TempDir(), "legacy.db") +
+		"?_pragma=journal_mode(WAL)&_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)"
+	db, err := sql.Open("sqlite", dsn)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	db.SetMaxOpenConns(1)
+	t.Cleanup(func() { db.Close() })
+	legacy := []string{
+		`CREATE TABLE profile (
+			id INTEGER PRIMARY KEY CHECK (id = 1),
+			name TEXT NOT NULL DEFAULT '',
+			headline TEXT NOT NULL DEFAULT ''
+		)`,
+		`CREATE TABLE sections (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			type TEXT NOT NULL,
+			title TEXT NOT NULL,
+			title_color TEXT NOT NULL DEFAULT '',
+			line_color TEXT NOT NULL DEFAULT '',
+			sort_order INTEGER NOT NULL DEFAULT 0
+		)`,
+		`INSERT INTO profile (id, name, headline) VALUES (1, 'Ada Lovelace', 'Engineer & Analyst')`,
+		`INSERT INTO sections (type, title, sort_order) VALUES ('contact', 'Contact', 0)`,
+		`INSERT INTO sections (type, title, sort_order) VALUES ('skills', 'Skills', 1)`,
+	}
+	for _, stmt := range legacy {
+		if _, err := db.Exec(stmt); err != nil {
+			t.Fatalf("legacy setup: %v", err)
+		}
+	}
+	s := &Store{db: db}
+	if err := s.migrate(); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	// A legacy database always had a preset; add one so seed() does not
+	// re-create the default sections on top of the existing ones.
+	if _, err := db.Exec(`INSERT INTO presets (name) VALUES ('Default')`); err != nil {
+		t.Fatalf("insert preset: %v", err)
+	}
+	if err := s.seed(); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	var hasProfileTable bool
+	if err := db.QueryRow(
+		`SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'profile')`,
+	).Scan(&hasProfileTable); err != nil {
+		t.Fatalf("check profile table: %v", err)
+	}
+	if hasProfileTable {
+		t.Errorf("profile table should be dropped after migration")
+	}
+	state, err := s.GetResumeState(0)
+	if err != nil {
+		t.Fatalf("GetResumeState: %v", err)
+	}
+	if state.Sections[0].Type != "contact" {
+		t.Fatalf("first section = %q, want contact", state.Sections[0].Type)
+	}
+	if state.Sections[0].Name != "Ada Lovelace" || state.Sections[0].Headline != "Engineer & Analyst" {
+		t.Errorf("contact header = %q / %q, want migrated profile values",
+			state.Sections[0].Name, state.Sections[0].Headline)
+	}
+	if state.Sections[1].Name != "" || state.Sections[1].Headline != "" {
+		t.Errorf("skills header = %q / %q, want empty",
+			state.Sections[1].Name, state.Sections[1].Headline)
+	}
+}
+
+func TestUpdateContactHeader(t *testing.T) {
+	s := newTestStore(t)
+	state, err := s.GetResumeState(0)
+	if err != nil {
+		t.Fatalf("GetResumeState: %v", err)
+	}
+	if state.Sections[0].Type != "contact" {
+		t.Fatalf("first section = %q, want contact", state.Sections[0].Type)
+	}
+	contactID := state.Sections[0].ID
+	if err := s.UpdateContactHeader(contactID, "Grace Hopper", "Rear Admiral"); err != nil {
+		t.Fatalf("UpdateContactHeader: %v", err)
+	}
+	got, err := s.GetResumeState(0)
+	if err != nil {
+		t.Fatalf("GetResumeState: %v", err)
+	}
+	if got.Sections[0].Name != "Grace Hopper" || got.Sections[0].Headline != "Rear Admiral" {
+		t.Errorf("contact header = %q / %q", got.Sections[0].Name, got.Sections[0].Headline)
+	}
+	// Only contact sections carry a header.
+	if err := s.UpdateContactHeader(state.Sections[1].ID, "x", "y"); err == nil {
+		t.Errorf("UpdateContactHeader on a non-contact section should fail")
+	}
+	if err := s.UpdateContactHeader(999, "x", "y"); err == nil {
+		t.Errorf("UpdateContactHeader on a missing section should fail")
+	}
+}
+
 func TestToggleItemRoundTrip(t *testing.T) {
 	s := newTestStore(t)
 	state, err := s.GetResumeState(0)

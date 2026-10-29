@@ -55,15 +55,12 @@ func (s *Store) Close() error {
 
 func (s *Store) migrate() error {
 	stmts := []string{
-		`CREATE TABLE IF NOT EXISTS profile (
-			id INTEGER PRIMARY KEY CHECK (id = 1),
-			name TEXT NOT NULL DEFAULT '',
-			headline TEXT NOT NULL DEFAULT ''
-		)`,
 		`CREATE TABLE IF NOT EXISTS sections (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			type TEXT NOT NULL,
 			title TEXT NOT NULL,
+			name TEXT NOT NULL DEFAULT '',
+			headline TEXT NOT NULL DEFAULT '',
 			title_color TEXT NOT NULL DEFAULT '',
 			line_color TEXT NOT NULL DEFAULT '',
 			sort_order INTEGER NOT NULL DEFAULT 0
@@ -126,7 +123,7 @@ func (s *Store) migrate() error {
 
 	// Add columns introduced after the first release to existing
 	// databases (CREATE TABLE IF NOT EXISTS does not touch them).
-	for _, col := range []string{"title_color", "line_color"} {
+	for _, col := range []string{"title_color", "line_color", "name", "headline"} {
 		present, err := s.columnExists("sections", col)
 		if err != nil {
 			return err
@@ -138,6 +135,36 @@ func (s *Store) migrate() error {
 				return fmt.Errorf("migrate: add %s: %w", col, err)
 			}
 		}
+	}
+	return s.migrateProfile()
+}
+
+// migrateProfile moves the legacy global profile (name/headline) into
+// the first contact section and drops the profile table. Databases
+// created after the profile was removed have no such table.
+func (s *Store) migrateProfile() error {
+	var hasProfileTable bool
+	if err := s.db.QueryRow(
+		`SELECT EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'profile')`,
+	).Scan(&hasProfileTable); err != nil {
+		return fmt.Errorf("migrate: check profile table: %w", err)
+	}
+	if !hasProfileTable {
+		return nil
+	}
+	var name, headline string
+	if err := s.db.QueryRow(`SELECT name, headline FROM profile WHERE id = 1`).
+		Scan(&name, &headline); err == nil && (name != "" || headline != "") {
+		if _, err := s.db.Exec(
+			`UPDATE sections SET name = ?, headline = ?
+			 WHERE id = (SELECT MIN(id) FROM sections WHERE type = ?)`,
+			name, headline, models.SectionContact,
+		); err != nil {
+			return fmt.Errorf("migrate: move profile into contact section: %w", err)
+		}
+	}
+	if _, err := s.db.Exec(`DROP TABLE IF EXISTS profile`); err != nil {
+		return fmt.Errorf("migrate: drop profile table: %w", err)
 	}
 	return nil
 }
@@ -165,13 +192,6 @@ func (s *Store) columnExists(table, column string) (bool, error) {
 }
 
 func (s *Store) seed() error {
-	if _, err := s.db.Exec(
-		`INSERT INTO profile (id, name, headline) VALUES (1, '', '')
-		 ON CONFLICT(id) DO NOTHING`,
-	); err != nil {
-		return err
-	}
-
 	// Seed the default sections and preset only on a fresh database (no
 	// presets yet). Re-seeding whenever sections happen to be empty would
 	// resurrect sections the user deliberately deleted.
@@ -209,27 +229,6 @@ func (s *Store) seed() error {
 		return err
 	}
 	return tx.Commit()
-}
-
-// GetProfile returns the global profile.
-func (s *Store) GetProfile() (models.Profile, error) {
-	var p models.Profile
-	err := s.db.QueryRow(`SELECT name, headline FROM profile WHERE id = 1`).
-		Scan(&p.Name, &p.Headline)
-	if err != nil {
-		return p, fmt.Errorf("get profile: %w", err)
-	}
-	return p, nil
-}
-
-// UpdateProfile saves the global profile.
-func (s *Store) UpdateProfile(p models.Profile) error {
-	_, err := s.db.Exec(`UPDATE profile SET name = ?, headline = ? WHERE id = 1`,
-		p.Name, p.Headline)
-	if err != nil {
-		return fmt.Errorf("update profile: %w", err)
-	}
-	return nil
 }
 
 func decodeItemData(raw string) map[string]interface{} {

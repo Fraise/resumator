@@ -2,19 +2,13 @@
 // backend and the Svelte frontend.
 package models
 
-// Profile is the single global identity shown at the top of the resume.
-type Profile struct {
-	Name     string `json:"name"`
-	Headline string `json:"headline"`
-}
-
 // Detail is a sub-entry of an item, e.g. an achievement bullet in a
 // professional experience entry.
 type Detail struct {
-	ID        int64  `json:"id"`
-	ItemID    int64  `json:"itemId"`
-	Text      string `json:"text"`
-	Included  bool   `json:"included"`
+	ID       int64  `json:"id"`
+	ItemID   int64  `json:"itemId"`
+	Text     string `json:"text"`
+	Included bool   `json:"included"`
 }
 
 // Item is an entry inside a section. The shape of Data depends on the
@@ -40,18 +34,21 @@ const (
 	SectionContact    SectionType = "contact"
 	SectionSkills     SectionType = "skills"
 	SectionExperience SectionType = "experience"
-	SectionEducation SectionType = "education"
-	SectionCustom    SectionType = "custom"
+	SectionEducation  SectionType = "education"
+	SectionCustom     SectionType = "custom"
 )
 
 // Section is a resume section resolved for a given preset: Visible,
 // Title (including any preset override) and Items are preset-dependent.
 // TitleColor and LineColor are optional "#rrggbb" strings; empty means
-// the default rendering colors.
+// the default rendering colors. Name and Headline carry the identity
+// shown at the top of the resume; only contact sections use them.
 type Section struct {
 	ID         int64  `json:"id"`
 	Type       string `json:"type"`
 	Title      string `json:"title"`
+	Name       string `json:"name"`
+	Headline   string `json:"headline"`
 	TitleColor string `json:"titleColor"`
 	LineColor  string `json:"lineColor"`
 	Visible    bool   `json:"visible"`
@@ -93,8 +90,7 @@ func DefaultTextStyles() TextStyles {
 
 // ResumeState is the full application state resolved for one preset.
 type ResumeState struct {
-	Profile  Profile    `json:"profile"`
-	Styles   TextStyles  `json:"styles"`
+	Styles   TextStyles `json:"styles"`
 	Presets  []Preset   `json:"presets"`
 	Sections []Section  `json:"sections"`
 }

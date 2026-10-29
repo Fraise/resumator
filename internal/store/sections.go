@@ -37,6 +37,22 @@ func (s *Store) UpdateSection(id int64, title string) error {
 	return nil
 }
 
+// UpdateContactHeader saves the name and headline of a contact section;
+// they are shown at the top of the resume.
+func (s *Store) UpdateContactHeader(id int64, name, headline string) error {
+	res, err := s.db.Exec(
+		`UPDATE sections SET name = ?, headline = ? WHERE id = ? AND type = ?`,
+		name, headline, id, models.SectionContact,
+	)
+	if err != nil {
+		return fmt.Errorf("update contact header: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("contact section %d not found", id)
+	}
+	return nil
+}
+
 // DeleteSection removes a section and all its items.
 func (s *Store) DeleteSection(id int64) error {
 	res, err := s.db.Exec(`DELETE FROM sections WHERE id = ?`, id)
@@ -89,11 +105,7 @@ func (s *Store) GetResumeState(presetID int64) (models.ResumeState, error) {
 		}
 	}
 	state := models.ResumeState{}
-	profile, err := s.GetProfile()
-	if err != nil {
-		return state, err
-	}
-	state.Profile = profile
+	var err error
 	state.Styles, err = s.GetTextStyles()
 	if err != nil {
 		return state, err
@@ -109,7 +121,7 @@ func (s *Store) GetResumeState(presetID int64) (models.ResumeState, error) {
 
 	rows, err := s.db.Query(`
 		SELECT s.id, s.type, COALESCE(ps.title_override, s.title),
-		       s.title_color, s.line_color,
+		       s.name, s.headline, s.title_color, s.line_color,
 		       COALESCE(ps.visible, 1) AS visible
 		FROM sections s
 		LEFT JOIN preset_sections ps ON ps.section_id = s.id AND ps.preset_id = ?
@@ -124,7 +136,8 @@ func (s *Store) GetResumeState(presetID int64) (models.ResumeState, error) {
 		var sec models.Section
 		var visible int
 		if err := rows.Scan(
-			&sec.ID, &sec.Type, &sec.Title, &sec.TitleColor, &sec.LineColor, &visible,
+			&sec.ID, &sec.Type, &sec.Title, &sec.Name, &sec.Headline,
+			&sec.TitleColor, &sec.LineColor, &visible,
 		); err != nil {
 			rows.Close()
 			return state, err

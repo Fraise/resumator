@@ -3,7 +3,6 @@
 	import { DEFAULT_TEXT_STYLES } from '../../lib/types';
 	import type { StyleRole, TextStyles } from '../../lib/types';
 
-	const profile = $derived(resume.state?.profile);
 	const styles = $derived(resume.state?.styles ?? DEFAULT_TEXT_STYLES);
 
 	const roles: { role: StyleRole; label: string; hint: string }[] = [
@@ -26,69 +25,42 @@
 	}
 </script>
 
-<h2 class="editor-title">Profile</h2>
-<p class="hint">
-	The profile appears at the top of every resume. The contact section carries the contact
-	details.
-</p>
+<h2 class="editor-title">Typography</h2>
+<p class="hint">Font size and formatting for every section, applied to all resumes.</p>
 
-{#if profile}
-	<label class="field">
-		<span>Full name</span>
-		<input
-			placeholder="Jane Doe"
-			value={profile.name}
-			oninput={(e) => resume.updateProfileField('name', (e.currentTarget as HTMLInputElement).value)}
-		/>
-	</label>
-	<label class="field">
-		<span>Headline</span>
-		<input
-			placeholder="Senior Software Engineer"
-			value={profile.headline}
-			oninput={(e) =>
-				resume.updateProfileField('headline', (e.currentTarget as HTMLInputElement).value)}
-		/>
-	</label>
-{/if}
-
-<div class="typography">
-	<h3 class="typo-title">Typography</h3>
-	<p class="hint">Font size and formatting for every section, applied to all resumes.</p>
-	{#each roles as { role, label, hint } (role)}
-		<div class="type-row" title={hint}>
-			<span class="type-label">{label}</span>
-			<label class="size-field">
-				<input
-					class="size-input"
-					type="number"
-					min="6"
-					max="24"
-					step="0.5"
-					value={styles[role].size}
-					oninput={(e) => setSize(role, e)}
-				/>
-				<span class="size-unit">pt</span>
-			</label>
-			<button
-				class="fmt-btn"
-				class:active={styles[role].bold}
-				title="Bold"
-				onclick={() => toggle(role, 'bold')}
-			>
-				<span class="fmt-bold">B</span>
-			</button>
-			<button
-				class="fmt-btn"
-				class:active={styles[role].italic}
-				title="Italic"
-				onclick={() => toggle(role, 'italic')}
-			>
-				<span class="fmt-italic">I</span>
-			</button>
-		</div>
-	{/each}
-</div>
+{#each roles as { role, label, hint } (role)}
+	<div class="type-row" title={hint}>
+		<span class="type-label">{label}</span>
+		<label class="size-field">
+			<input
+				class="size-input"
+				type="number"
+				min="6"
+				max="24"
+				step="0.5"
+				value={styles[role].size}
+				oninput={(e) => setSize(role, e)}
+			/>
+			<span class="size-unit">pt</span>
+		</label>
+		<button
+			class="fmt-btn"
+			class:active={styles[role].bold}
+			title="Bold"
+			onclick={() => toggle(role, 'bold')}
+		>
+			<span class="fmt-bold">B</span>
+		</button>
+		<button
+			class="fmt-btn"
+			class:active={styles[role].italic}
+			title="Italic"
+			onclick={() => toggle(role, 'italic')}
+		>
+			<span class="fmt-italic">I</span>
+		</button>
+	</div>
+{/each}
 
 <style>
 	.editor-title {
@@ -99,33 +71,6 @@
 		margin: 0 0 12px;
 		color: var(--muted-foreground);
 		font-size: 13px;
-	}
-
-	.field {
-		display: block;
-		margin-bottom: 12px;
-	}
-
-	.field > span {
-		display: block;
-		font-size: 12px;
-		color: var(--muted-foreground);
-		margin-bottom: 3px;
-	}
-
-	.typography {
-		margin-top: 12px;
-		border-top: 1px solid var(--border);
-		padding-top: 14px;
-	}
-
-	.typo-title {
-		font-size: 14px;
-		margin-bottom: 4px;
-	}
-
-	.typography .hint {
-		margin-bottom: 10px;
 	}
 
 	.type-row {

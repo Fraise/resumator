@@ -32,13 +32,14 @@ if (typeof window !== 'undefined') {
 	window.addEventListener('pagehide', flushPendingSaves);
 }
 
-// selectedSectionId === 0 means the Profile view is selected.
-export const PROFILE_VIEW = 0;
+// Special selectedSectionId value for the fixed (non-sortable) sidebar
+// entry: -1 = Typography view. Section ids are positive.
+export const TYPOGRAPHY_VIEW = -1;
 
 class ResumeStore {
 	state = $state<ResumeState | null>(null);
 	activePresetId = $state(0);
-	selectedSectionId = $state(PROFILE_VIEW);
+	selectedSectionId = $state(TYPOGRAPHY_VIEW);
 	status = $state('');
 	error = $state('');
 	// Pagination computed by the backend (same engine as the PDF export),
@@ -128,7 +129,7 @@ class ResumeStore {
 			this.activePresetId = presetId;
 			const stillThere = this.sections.some((s) => s.id === this.selectedSectionId);
 			if (!stillThere) {
-				this.selectedSectionId = this.sections[0]?.id ?? PROFILE_VIEW;
+				this.selectedSectionId = this.sections[0]?.id ?? TYPOGRAPHY_VIEW;
 			}
 			await this.refreshLayout();
 		} catch (e) {
@@ -145,14 +146,15 @@ class ResumeStore {
 		this.scheduleLayoutRefresh();
 	}
 
-	// ---- profile -----------------------------------------------------
+	// ---- contact header (name/headline at the top of the resume) ------
 
-	updateProfileField(field: 'name' | 'headline', value: string) {
-		if (!this.state) return;
-		this.state.profile[field] = value;
-		debounce('profile', () => {
+	updateContactHeader(sectionId: number, field: 'name' | 'headline', value: string) {
+		const section = this.sections.find((s) => s.id === sectionId);
+		if (!section) return;
+		section[field] = value;
+		debounce(`contact-header:${sectionId}`, () => {
 			api
-				.updateProfile(this.state!.profile)
+				.updateContactHeader(sectionId, section.name, section.headline)
 				.then(() => this.refreshLayout())
 				.catch((e) => this.fail(e));
 		});
@@ -217,7 +219,7 @@ class ResumeStore {
 		try {
 			await api.deleteSection(sectionId);
 			if (this.selectedSectionId === sectionId) {
-				this.selectedSectionId = this.sections[0]?.id ?? PROFILE_VIEW;
+				this.selectedSectionId = this.sections[0]?.id ?? TYPOGRAPHY_VIEW;
 			}
 			await this.reload();
 			this.setStatus('Section deleted');

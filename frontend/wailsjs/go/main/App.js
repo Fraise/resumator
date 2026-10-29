@@ -82,16 +82,16 @@ export function ToggleItem(arg1, arg2, arg3) {
   return window['go']['main']['App']['ToggleItem'](arg1, arg2, arg3);
 }
 
+export function UpdateContactHeader(arg1, arg2, arg3) {
+  return window['go']['main']['App']['UpdateContactHeader'](arg1, arg2, arg3);
+}
+
 export function UpdateDetail(arg1, arg2) {
   return window['go']['main']['App']['UpdateDetail'](arg1, arg2);
 }
 
 export function UpdateItemData(arg1, arg2) {
   return window['go']['main']['App']['UpdateItemData'](arg1, arg2);
-}
-
-export function UpdateProfile(arg1) {
-  return window['go']['main']['App']['UpdateProfile'](arg1);
 }
 
 export function UpdateSection(arg1, arg2) {

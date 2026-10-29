@@ -230,11 +230,13 @@ func sanitizeStyles(s models.TextStyles) models.TextStyles {
 // close the current page and start a new one.
 type emptyPage struct{}
 
-func (emptyPage) SetConfig(*entity.Config)                       {}
-func (emptyPage) GetStructure() *node.Node[core.Structure]       { return node.New(core.Structure{Type: "page"}) }
-func (emptyPage) Add(...core.Row) core.Page                      { return emptyPage{} }
-func (emptyPage) GetRows() []core.Row                            { return nil }
-func (emptyPage) GetNumber() int                                 { return 0 }
+func (emptyPage) SetConfig(*entity.Config) {}
+func (emptyPage) GetStructure() *node.Node[core.Structure] {
+	return node.New(core.Structure{Type: "page"})
+}
+func (emptyPage) Add(...core.Row) core.Page                       { return emptyPage{} }
+func (emptyPage) GetRows() []core.Row                             { return nil }
+func (emptyPage) GetNumber() int                                  { return 0 }
 func (emptyPage) SetNumber(number int, total int)                 {}
 func (emptyPage) Render(provider core.Provider, cell entity.Cell) {}
 
@@ -329,12 +331,13 @@ func (d *docBuilder) titleDates(title string, titleProp props.Text, dates string
 }
 
 func (d *docBuilder) buildHeader(state models.ResumeState) []blockRow {
-	if name := strings.TrimSpace(state.Profile.Name); name != "" {
+	name, headline := contactHeader(state)
+	if name = strings.TrimSpace(name); name != "" {
 		d.autoText(name, props.Text{
 			Style: fontstyle.Bold, Size: 18, Align: align.Center,
 		})
 	}
-	if headline := strings.TrimSpace(state.Profile.Headline); headline != "" {
+	if headline = strings.TrimSpace(headline); headline != "" {
 		d.autoText(headline, props.Text{
 			Style: fontstyle.Italic, Size: 10.5, Align: align.Center,
 			Color: gray, Top: 1.5, VerticalPadding: 0.5,
@@ -350,6 +353,17 @@ func (d *docBuilder) buildHeader(state models.ResumeState) []blockRow {
 		})
 	}
 	return d.take()
+}
+
+// contactHeader returns the name and headline of the first visible
+// contact section, mirroring the preview header.
+func contactHeader(state models.ResumeState) (name, headline string) {
+	for _, section := range state.Sections {
+		if section.Type == string(models.SectionContact) && section.Visible {
+			return section.Name, section.Headline
+		}
+	}
+	return "", ""
 }
 
 // contactLines joins the values of every visible contact section, one

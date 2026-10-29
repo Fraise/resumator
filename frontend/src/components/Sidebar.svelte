@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { resume, PROFILE_VIEW } from '../lib/stores/resume.svelte';
+	import { resume, TYPOGRAPHY_VIEW } from '../lib/stores/resume.svelte';
 	import type { Section, SectionType } from '../lib/types';
 	import Icon from './Icon.svelte';
 	import SortableList from './SortableList.svelte';
@@ -32,14 +32,16 @@
 </script>
 
 <nav class="sidebar">
-	<div class="nav-group-label">Content</div>
+	<div class="nav-group-label">Appearance</div>
+	<!-- Fixed entry: part of this group but not draggable, unlike the
+	     sortable section list below. -->
 	<button
 		class="nav-item"
-		class:active={resume.selectedSectionId === PROFILE_VIEW}
-		onclick={() => (resume.selectedSectionId = PROFILE_VIEW)}
+		class:active={resume.selectedSectionId === TYPOGRAPHY_VIEW}
+		onclick={() => (resume.selectedSectionId = TYPOGRAPHY_VIEW)}
 	>
-		<Icon name="user" size={15} />
-		<span>Profile</span>
+		<Icon name="type" size={15} />
+		<span>Typography</span>
 	</button>
 
 	<div class="nav-group-label">Sections</div>

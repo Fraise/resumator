@@ -71,13 +71,14 @@ func (a *App) GetPageLayout(presetID int64, format string) (models.PageLayout, e
 	return models.PageLayout{Breaks: breaks, PageCount: pageCount}, nil
 }
 
-// UpdateProfile saves the global profile.
-func (a *App) UpdateProfile(profile models.Profile) error {
+// UpdateContactHeader saves the name and headline of a contact section,
+// shown at the top of every resume.
+func (a *App) UpdateContactHeader(sectionID int64, name, headline string) error {
 	s, err := a.st()
 	if err != nil {
 		return err
 	}
-	return s.UpdateProfile(profile)
+	return s.UpdateContactHeader(sectionID, name, headline)
 }
 
 // UpdateTextStyles saves the global typography applied to every resume.

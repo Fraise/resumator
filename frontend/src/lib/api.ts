@@ -11,8 +11,8 @@ export const api = {
 		backend.GetResumeState(presetId) as unknown as Promise<ResumeState>,
 	getPageLayout: (presetId: number, format: string) =>
 		backend.GetPageLayout(presetId, format) as unknown as Promise<PageLayout>,
-	updateProfile: (profile: { name: string; headline: string }) =>
-		backend.UpdateProfile(profile),
+	updateContactHeader: (sectionId: number, name: string, headline: string) =>
+		backend.UpdateContactHeader(sectionId, name, headline),
 	updateTextStyles: (styles: TextStyles) =>
 		backend.UpdateTextStyles(styles as unknown as models.TextStyles),
 	addSection: (type: string, title: string) => backend.AddSection(type, title),

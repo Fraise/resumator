@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resume } from '../lib/stores/resume.svelte';
-	import ProfileEditor from './editors/ProfileEditor.svelte';
+	import TypographyEditor from './editors/TypographyEditor.svelte';
 	import ContactEditor from './editors/ContactEditor.svelte';
 	import SkillsEditor from './editors/SkillsEditor.svelte';
 	import ExperienceEditor from './editors/ExperienceEditor.svelte';
@@ -14,7 +14,7 @@
 
 <section class="editor">
 	{#if section === null}
-		<ProfileEditor />
+		<TypographyEditor />
 	{:else}
 		<div class="section-header">
 			<div class="header-row">

@@ -4,12 +4,14 @@
 	import type { Item, Section } from '../lib/types';
 	import Icon from './Icon.svelte';
 
-	const resumeState = $derived(resume.state);
 	const styles = $derived(resume.state?.styles);
 	const page = $derived(PAGE_SIZES[format.current]);
 	const visibleSections = $derived(
 		(resume.state?.sections ?? []).filter((s) => s.visible)
 	);
+	// The first visible contact section carries the name/headline shown
+	// in the header (same rule as the PDF export).
+	const headerSection = $derived(visibleSections.find((s) => s.type === 'contact'));
 
 	// Pages are chunked from the backend-computed breaks (the same engine
 	// as the PDF export), so preview pages match the exported document.
@@ -108,9 +110,9 @@
 
 {#snippet headerBlock()}
 	<header class="resume-header">
-		<h1 class="name">{resumeState?.profile.name || 'Your Name'}</h1>
-		{#if resumeState?.profile.headline}
-			<div class="headline">{resumeState.profile.headline}</div>
+		<h1 class="name">{headerSection?.name || 'Your Name'}</h1>
+		{#if headerSection?.headline}
+			<div class="headline">{headerSection.headline}</div>
 		{/if}
 		{#each visibleSections as section (section.id)}
 			{#if section.type === 'contact' && contactLine(section)}
