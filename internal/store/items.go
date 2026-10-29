@@ -91,8 +91,12 @@ func (s *Store) UpdateItemData(id int64, data map[string]interface{}) error {
 
 // DeleteItem removes an item and its details.
 func (s *Store) DeleteItem(id int64) error {
-	if _, err := s.db.Exec(`DELETE FROM items WHERE id = ?`, id); err != nil {
+	res, err := s.db.Exec(`DELETE FROM items WHERE id = ?`, id)
+	if err != nil {
 		return fmt.Errorf("delete item: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("item %d not found", id)
 	}
 	return nil
 }
@@ -151,8 +155,12 @@ func (s *Store) UpdateDetail(id int64, text string) error {
 
 // DeleteDetail removes a detail.
 func (s *Store) DeleteDetail(id int64) error {
-	if _, err := s.db.Exec(`DELETE FROM item_details WHERE id = ?`, id); err != nil {
+	res, err := s.db.Exec(`DELETE FROM item_details WHERE id = ?`, id)
+	if err != nil {
 		return fmt.Errorf("delete detail: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("detail %d not found", id)
 	}
 	return nil
 }

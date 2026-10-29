@@ -6,7 +6,8 @@
 // Sections are never split across pages: the document is built as a
 // sequence of blocks whose heights are known in advance (replicating
 // maroto's text metrics), and a page break is forced before any section
-// that would not fit on the current page.
+// that would not fit on the current page. A section taller than a whole
+// page cannot be kept together and is split at row boundaries instead.
 package pdf
 
 import (
@@ -56,6 +57,17 @@ func pageDims(format string) (width, height float64) {
 // Generate renders the given resume state to PDF bytes. The format is
 // "a4" (default) or "letter" and selects the page size.
 func Generate(state models.ResumeState, format string) ([]byte, error) {
+	d, err := newMaroto(state, format).Generate()
+	if err != nil {
+		return nil, err
+	}
+	return d.GetBytes(), nil
+}
+
+// newMaroto builds the maroto document for the state, forcing page breaks
+// exactly where paginate decided, so the exported pages match Layout (and
+// the preview).
+func newMaroto(state models.ResumeState, format string) core.Maroto {
 	_, pageHeight := pageDims(format)
 	size := pagesize.A4
 	if strings.EqualFold(strings.TrimSpace(format), "letter") {
@@ -71,25 +83,20 @@ func Generate(state models.ResumeState, format string) ([]byte, error) {
 		Build()
 	m := maroto.New(cfg)
 
-	blocks, _ := buildBlocks(state, format)
-	for pi, pageBlocks := range layout(blocks, pageHeight-marginTop-marginBottom) {
+	blocks, owners := buildBlocks(state, format)
+	for pi, page := range paginate(blocks, owners, pageHeight-marginTop-marginBottom) {
 		if pi > 0 {
 			// Force a page break exactly where the layout engine decided,
 			// so the exported pages match Layout (and the preview).
 			m.AddPages(emptyPage{})
 		}
-		for _, bi := range pageBlocks {
-			for _, r := range blocks[bi] {
+		for _, c := range page {
+			for _, r := range c.rows {
 				m.AddRows(r.row)
 			}
 		}
 	}
-
-	d, err := m.Generate()
-	if err != nil {
-		return nil, err
-	}
-	return d.GetBytes(), nil
+	return m
 }
 
 // Layout returns the pagination the PDF export will use: the section
@@ -97,57 +104,72 @@ func Generate(state models.ResumeState, format string) ([]byte, error) {
 // preview uses this so its pages match the export exactly.
 func Layout(state models.ResumeState, format string) (breaks []int64, pageCount int) {
 	_, pageHeight := pageDims(format)
-	useful := pageHeight - marginTop - marginBottom
-
 	blocks, owners := buildBlocks(state, format)
-	pages := layout(blocks, useful)
-	for pi, pageBlocks := range pages {
-		if pi == 0 {
-			continue
-		}
-		breaks = append(breaks, owners[pageBlocks[0]])
-	}
-	// A block taller than a whole page is row-split by maroto across
-	// additional pages; count those overflow pages too.
-	for _, pageBlocks := range pages {
-		used := 0.0
-		for _, bi := range pageBlocks {
-			for _, r := range blocks[bi] {
-				used += r.height
-			}
-		}
-		if used <= useful || used == 0 {
-			pageCount++
-		} else {
-			pageCount += int(math.Ceil(used / useful))
+	pages := paginate(blocks, owners, pageHeight-marginTop-marginBottom)
+	for pi, page := range pages {
+		if pi > 0 {
+			breaks = append(breaks, page[0].owner)
 		}
 	}
-	return breaks, pageCount
+	return breaks, len(pages)
 }
 
-// layout distributes whole blocks over pages of the given content
-// height: a block that does not fit in the remaining space starts the
-// next page, so sections are never cut in half.
-func layout(blocks [][]blockRow, pageHeight float64) [][]int {
-	var pages [][]int
-	current := []int{}
+// chunk is a run of rows that stays together on one page. owner is the
+// section ID owning the chunk (0 for the header).
+type chunk struct {
+	rows  []blockRow
+	owner int64
+}
+
+// paginate distributes blocks over pages of the given content height.
+// A block that fits on a single page is never split: if it does not fit
+// in the remaining space it starts the next page, so sections are never
+// cut in half. A block taller than a whole page cannot be kept together
+// and is split at row boundaries instead, starting on a fresh page.
+func paginate(blocks [][]blockRow, owners []int64, pageHeight float64) [][]chunk {
+	var pages [][]chunk
+	var current []chunk
 	used := 0.0
+	flush := func() {
+		if len(current) > 0 {
+			pages = append(pages, current)
+			current = nil
+			used = 0
+		}
+	}
 	for i, block := range blocks {
 		total := 0.0
 		for _, r := range block {
 			total += r.height
 		}
-		if len(current) > 0 && used+total > pageHeight {
-			pages = append(pages, current)
-			current = nil
-			used = 0
+		if total <= pageHeight {
+			if len(current) > 0 && used+total > pageHeight {
+				flush()
+			}
+			current = append(current, chunk{rows: block, owner: owners[i]})
+			used += total
+			continue
 		}
-		current = append(current, i)
-		used += total
+		// Oversized block: start it on a fresh page and split it at row
+		// boundaries; the last piece stays open so later blocks can join it.
+		flush()
+		var rows []blockRow
+		h := 0.0
+		for _, r := range block {
+			if len(rows) > 0 && h+r.height > pageHeight {
+				pages = append(pages, []chunk{{rows: rows, owner: owners[i]}})
+				rows = nil
+				h = 0
+			}
+			rows = append(rows, r)
+			h += r.height
+		}
+		if len(rows) > 0 {
+			current = []chunk{{rows: rows, owner: owners[i]}}
+			used = h
+		}
 	}
-	if len(current) > 0 {
-		pages = append(pages, current)
-	}
+	flush()
 	return pages
 }
 
@@ -156,14 +178,12 @@ func layout(blocks [][]blockRow, pageHeight float64) [][]int {
 // ID owning each block (0 for the header).
 func buildBlocks(state models.ResumeState, format string) ([][]blockRow, []int64) {
 	pageWidth, _ := pageDims(format)
-	styles := state.Styles
-	if styles.SectionTitle.Size == 0 {
-		styles = models.DefaultTextStyles()
-	}
+	meas := acquireMeasurer()
+	defer releaseMeasurer(meas)
 	doc := &docBuilder{
-		meas:         newMeasurer(),
+		meas:         meas,
 		contentWidth: pageWidth - marginLeft - marginRight,
-		styles:       styles,
+		styles:       sanitizeStyles(state.Styles),
 	}
 
 	var blocks [][]blockRow
@@ -183,6 +203,27 @@ func buildBlocks(state models.ResumeState, format string) ([][]blockRow, []int64
 		}
 	}
 	return blocks, owners
+}
+
+// sanitizeStyles replaces non-positive sizes with the defaults, so a
+// zeroed or negative style can never reach the renderer (maroto would
+// silently promote size 0 to its own default, desynchronising the
+// measurer and the export).
+func sanitizeStyles(s models.TextStyles) models.TextStyles {
+	def := models.DefaultTextStyles()
+	if s.SectionTitle.Size <= 0 {
+		s.SectionTitle.Size = def.SectionTitle.Size
+	}
+	if s.EntryTitle.Size <= 0 {
+		s.EntryTitle.Size = def.EntryTitle.Size
+	}
+	if s.EntryDates.Size <= 0 {
+		s.EntryDates.Size = def.EntryDates.Size
+	}
+	if s.Body.Size <= 0 {
+		s.Body.Size = def.Body.Size
+	}
+	return s
 }
 
 // emptyPage is a core.Page without rows; adding it forces maroto to
@@ -235,6 +276,30 @@ func fontStyleOf(bold, italic bool) fontstyle.Type {
 	}
 }
 
+// bodyText returns the base body typography; callers add spacing and color.
+func (d *docBuilder) bodyText() props.Text {
+	return props.Text{
+		Size:  d.styles.Body.Size,
+		Style: fontStyleOf(d.styles.Body.Bold, d.styles.Body.Italic),
+	}
+}
+
+// entryTitleText returns the base entry-title typography.
+func (d *docBuilder) entryTitleText() props.Text {
+	return props.Text{
+		Size:  d.styles.EntryTitle.Size,
+		Style: fontStyleOf(d.styles.EntryTitle.Bold, d.styles.EntryTitle.Italic),
+	}
+}
+
+// entryDatesText returns the base entry-dates typography.
+func (d *docBuilder) entryDatesText() props.Text {
+	return props.Text{
+		Size:  d.styles.EntryDates.Size,
+		Style: fontStyleOf(d.styles.EntryDates.Bold, d.styles.EntryDates.Italic),
+	}
+}
+
 // autoText appends a full-width automatic text row.
 func (d *docBuilder) autoText(value string, prop props.Text) {
 	height := d.meas.textHeight(value, prop, d.contentWidth)
@@ -275,17 +340,22 @@ func (d *docBuilder) buildHeader(state models.ResumeState) []blockRow {
 			Color: gray, Top: 1.5, VerticalPadding: 0.5,
 		})
 	}
-	if contact := contactLine(state); contact != "" {
+	for i, contact := range contactLines(state) {
+		top := 2.0
+		if i > 0 {
+			top = 0.5
+		}
 		d.autoText(contact, props.Text{
-			Size: 9.5, Align: align.Center, Color: gray, Top: 2, VerticalPadding: 0.5,
+			Size: 9.5, Align: align.Center, Color: gray, Top: top, VerticalPadding: 0.5,
 		})
 	}
 	return d.take()
 }
 
-// contactLine joins the values of the first visible contact section,
-// mirroring the preview header.
-func contactLine(state models.ResumeState) string {
+// contactLines joins the values of every visible contact section, one
+// line per section, mirroring the preview header.
+func contactLines(state models.ResumeState) []string {
+	var lines []string
 	for _, section := range state.Sections {
 		if section.Type != string(models.SectionContact) || !section.Visible {
 			continue
@@ -300,11 +370,10 @@ func contactLine(state models.ResumeState) string {
 			}
 		}
 		if len(parts) > 0 {
-			return strings.Join(parts, "   •   ")
+			lines = append(lines, strings.Join(parts, "   •   "))
 		}
-		return ""
 	}
-	return ""
+	return lines
 }
 
 func (d *docBuilder) buildSection(section models.Section) []blockRow {
@@ -406,15 +475,9 @@ func (d *docBuilder) skills(section models.Section) {
 	}
 
 	titleProp := props.Text{Style: fontstyle.Bold, Size: d.styles.Body.Size, Top: 1, Align: align.Right}
-	skillsProp := props.Text{
-		Size: d.styles.Body.Size, Style: fontStyleOf(d.styles.Body.Bold, d.styles.Body.Italic),
-		Top: 1, VerticalPadding: 0.5,
-	}
-	// The gap between a title and its skills is one space wide, applied
-	// as the skills column's left padding (the title is right-aligned
-	// against its column edge).
-	gap := d.meas.textWidth(" ", skillsProp)
-	skillsProp.Left = gap
+	skillsProp := d.bodyText()
+	skillsProp.Top = 1
+	skillsProp.VerticalPadding = 0.5
 
 	titleWidth := 0.0
 	for _, g := range visible {
@@ -433,6 +496,10 @@ func (d *docBuilder) skills(section models.Section) {
 		if titleUnits > maxGrid-60 {
 			titleUnits = maxGrid - 60
 		}
+		// The gap between a title and its skills is one space wide, applied
+		// as the skills column's left padding (the title is right-aligned
+		// against its column edge). Only needed when a title column exists.
+		skillsProp.Left = d.meas.textWidth(" ", skillsProp)
 	}
 	skillsUnits := maxGrid - titleUnits
 	wTitle := d.contentWidth * float64(titleUnits) / maxGrid
@@ -488,10 +555,11 @@ func (d *docBuilder) experience(section models.Section) {
 		}
 		d.entryTitle(title, dateRange(it.Data))
 		if summary := strings.TrimSpace(str(it.Data, "summary")); summary != "" {
-			d.autoText(summary, props.Text{
-				Size: d.styles.Body.Size, Style: fontStyleOf(d.styles.Body.Bold, d.styles.Body.Italic),
-				Color: gray, Top: 1, VerticalPadding: 0.5,
-			})
+			prop := d.bodyText()
+			prop.Color = gray
+			prop.Top = 1
+			prop.VerticalPadding = 0.5
+			d.autoText(summary, prop)
 		}
 		d.details(it.Details)
 	}
@@ -531,16 +599,15 @@ func (d *docBuilder) customItems(section models.Section) {
 			continue
 		}
 		if label := strings.TrimSpace(str(it.Data, "label")); label != "" {
-			d.autoText(label, props.Text{
-				Style: fontStyleOf(d.styles.EntryTitle.Bold, d.styles.EntryTitle.Italic),
-				Size:  d.styles.EntryTitle.Size, Top: 2,
-			})
+			prop := d.entryTitleText()
+			prop.Top = 2
+			d.autoText(label, prop)
 		}
 		if body := strings.TrimSpace(str(it.Data, "text")); body != "" {
-			d.autoText(body, props.Text{
-				Size: d.styles.Body.Size, Style: fontStyleOf(d.styles.Body.Bold, d.styles.Body.Italic),
-				Top: 1, VerticalPadding: 0.5,
-			})
+			prop := d.bodyText()
+			prop.Top = 1
+			prop.VerticalPadding = 0.5
+			d.autoText(body, prop)
 		}
 		d.details(it.Details)
 	}
@@ -552,42 +619,28 @@ func (d *docBuilder) customItems(section models.Section) {
 func (d *docBuilder) entryTitle(title, dates string) {
 	title = strings.TrimSpace(title)
 	dates = strings.TrimSpace(dates)
-	switch {
-	case title == "" && dates == "":
+	if title == "" && dates == "" {
 		return
-	case title == "":
-		d.titleDates("", props.Text{}, dates, props.Text{
-			Size: d.styles.EntryDates.Size, Style: fontStyleOf(d.styles.EntryDates.Bold, d.styles.EntryDates.Italic),
-			Align: align.Right, Color: gray, Top: 2.5,
-		})
-	case dates == "":
-		d.titleDates(title, props.Text{
-			Style: fontStyleOf(d.styles.EntryTitle.Bold, d.styles.EntryTitle.Italic),
-			Size:  d.styles.EntryTitle.Size, Top: 2,
-		}, "", props.Text{})
-	default:
-		d.titleDates(
-			title, props.Text{
-				Style: fontStyleOf(d.styles.EntryTitle.Bold, d.styles.EntryTitle.Italic),
-				Size:  d.styles.EntryTitle.Size, Top: 2,
-			},
-			dates, props.Text{
-				Size: d.styles.EntryDates.Size, Style: fontStyleOf(d.styles.EntryDates.Bold, d.styles.EntryDates.Italic),
-				Align: align.Right, Color: gray, Top: 2.5,
-			},
-		)
 	}
+	titleProp := d.entryTitleText()
+	titleProp.Top = 2
+	datesProp := d.entryDatesText()
+	datesProp.Align = align.Right
+	datesProp.Color = gray
+	datesProp.Top = 2.5
+	d.titleDates(title, titleProp, dates, datesProp)
 }
 
 func (d *docBuilder) details(details []models.Detail) {
+	prop := d.bodyText()
+	prop.Left = 3
+	prop.Top = 0.8
+	prop.VerticalPadding = 0.5
 	for _, det := range details {
 		if !det.Included || strings.TrimSpace(det.Text) == "" {
 			continue
 		}
-		d.autoText("• "+strings.TrimSpace(det.Text), props.Text{
-			Size: d.styles.Body.Size, Style: fontStyleOf(d.styles.Body.Bold, d.styles.Body.Italic),
-			Left: 3, Top: 0.8, VerticalPadding: 0.5,
-		})
+		d.autoText("• "+strings.TrimSpace(det.Text), prop)
 	}
 }
 

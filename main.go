@@ -43,7 +43,10 @@ func writeAll(path string, data []byte) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-	_, err = f.Write(data)
-	return err
+	if _, err := f.Write(data); err != nil {
+		f.Close()
+		return err
+	}
+	// Close can report delayed write errors; don't swallow them.
+	return f.Close()
 }

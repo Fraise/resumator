@@ -61,6 +61,10 @@ func (s *Store) CreatePreset(name string) (models.Preset, error) {
 // DuplicatePreset creates a new preset copying the sections, items and
 // detail selections of the source preset.
 func (s *Store) DuplicatePreset(name string, sourceID int64) (models.Preset, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return models.Preset{}, fmt.Errorf("preset name must not be empty")
+	}
 	if err := s.validatePreset(sourceID); err != nil {
 		return models.Preset{}, err
 	}
@@ -70,7 +74,7 @@ func (s *Store) DuplicatePreset(name string, sourceID int64) (models.Preset, err
 	}
 	defer tx.Rollback()
 
-	res, err := tx.Exec(`INSERT INTO presets (name) VALUES (?)`, strings.TrimSpace(name))
+	res, err := tx.Exec(`INSERT INTO presets (name) VALUES (?)`, name)
 	if err != nil {
 		return models.Preset{}, fmt.Errorf("duplicate preset: %w", err)
 	}
@@ -133,8 +137,12 @@ func (s *Store) DeletePreset(id int64) error {
 	if count <= 1 {
 		return fmt.Errorf("cannot delete the last preset")
 	}
-	if _, err := s.db.Exec(`DELETE FROM presets WHERE id = ?`, id); err != nil {
+	res, err := s.db.Exec(`DELETE FROM presets WHERE id = ?`, id)
+	if err != nil {
 		return fmt.Errorf("delete preset: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("preset %d not found", id)
 	}
 	return nil
 }

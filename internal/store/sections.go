@@ -39,8 +39,12 @@ func (s *Store) UpdateSection(id int64, title string) error {
 
 // DeleteSection removes a section and all its items.
 func (s *Store) DeleteSection(id int64) error {
-	if _, err := s.db.Exec(`DELETE FROM sections WHERE id = ?`, id); err != nil {
+	res, err := s.db.Exec(`DELETE FROM sections WHERE id = ?`, id)
+	if err != nil {
 		return fmt.Errorf("delete section: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("section %d not found", id)
 	}
 	return nil
 }
@@ -104,7 +108,8 @@ func (s *Store) GetResumeState(presetID int64) (models.ResumeState, error) {
 	state.Sections = []models.Section{}
 
 	rows, err := s.db.Query(`
-		SELECT s.id, s.type, s.title, s.title_color, s.line_color,
+		SELECT s.id, s.type, COALESCE(ps.title_override, s.title),
+		       s.title_color, s.line_color,
 		       COALESCE(ps.visible, 1) AS visible
 		FROM sections s
 		LEFT JOIN preset_sections ps ON ps.section_id = s.id AND ps.preset_id = ?
@@ -112,107 +117,109 @@ func (s *Store) GetResumeState(presetID int64) (models.ResumeState, error) {
 	if err != nil {
 		return state, fmt.Errorf("load sections: %w", err)
 	}
-	defer rows.Close()
 
+	// sectionID -> index in state.Sections
+	sectionIdx := map[int64]int{}
 	for rows.Next() {
 		var sec models.Section
 		var visible int
 		if err := rows.Scan(
 			&sec.ID, &sec.Type, &sec.Title, &sec.TitleColor, &sec.LineColor, &visible,
 		); err != nil {
+			rows.Close()
 			return state, err
 		}
 		sec.Visible = visible == 1
+		sec.Items = []models.Item{}
+		sectionIdx[sec.ID] = len(state.Sections)
 		state.Sections = append(state.Sections, sec)
 	}
 	if err := rows.Err(); err != nil {
+		rows.Close()
 		return state, err
 	}
+	rows.Close()
 
-	for i := range state.Sections {
-		items, err := s.loadItems(presetID, state.Sections[i].ID)
-		if err != nil {
-			return state, err
-		}
-		state.Sections[i].Items = items
-	}
-	return state, nil
-}
-
-func (s *Store) loadItems(presetID, sectionID int64) ([]models.Item, error) {
-	rows, err := s.db.Query(`
-		SELECT i.id,
+	// Load every item of the preset in one query, ordered like its section,
+	// and attach each item to its section as it arrives.
+	itemRows, err := s.db.Query(`
+		SELECT i.id, i.section_id, i.data,
 		       NOT EXISTS (
 		           SELECT 1 FROM preset_selections ps
 		           WHERE ps.preset_id = ? AND ps.item_id = i.id
 		             AND ps.detail_id IS NULL AND ps.included = 0
 		       ) AS included
 		FROM items i
-		WHERE i.section_id = ?
-		ORDER BY i.sort_order, i.id`, presetID, sectionID)
+		JOIN sections s ON s.id = i.section_id
+		ORDER BY s.sort_order, s.id, i.sort_order, i.id`, presetID)
 	if err != nil {
-		return nil, fmt.Errorf("load items: %w", err)
+		return state, fmt.Errorf("load items: %w", err)
 	}
-	defer rows.Close()
 
-	items := []models.Item{}
-	for rows.Next() {
+	// itemID -> position of the item inside its section
+	type itemPos struct{ sec, idx int }
+	itemIdx := map[int64]itemPos{}
+	for itemRows.Next() {
 		var it models.Item
 		var included int
-		if err := rows.Scan(&it.ID, &included); err != nil {
-			return nil, err
-		}
-		it.SectionID = sectionID
-		it.Included = included == 1
-		items = append(items, it)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
-	for i := range items {
 		var rawData string
-		err := s.db.QueryRow(`SELECT data FROM items WHERE id = ?`, items[i].ID).Scan(&rawData)
-		if err != nil {
-			return nil, err
+		if err := itemRows.Scan(&it.ID, &it.SectionID, &rawData, &included); err != nil {
+			itemRows.Close()
+			return state, err
 		}
-		items[i].Data = decodeItemData(rawData)
-		details, err := s.loadDetails(presetID, items[i].ID)
-		if err != nil {
-			return nil, err
+		si, ok := sectionIdx[it.SectionID]
+		if !ok {
+			continue
 		}
-		items[i].Details = details
+		it.Included = included == 1
+		it.Data = decodeItemData(rawData)
+		it.Details = []models.Detail{}
+		items := &state.Sections[si].Items
+		itemIdx[it.ID] = itemPos{si, len(*items)}
+		*items = append(*items, it)
 	}
-	return items, nil
-}
+	if err := itemRows.Err(); err != nil {
+		itemRows.Close()
+		return state, err
+	}
+	itemRows.Close()
 
-func (s *Store) loadDetails(presetID, itemID int64) ([]models.Detail, error) {
-	rows, err := s.db.Query(`
-		SELECT d.id, d.text,
+	// Load every detail of the preset in one query, ordered like its item.
+	detailRows, err := s.db.Query(`
+		SELECT d.id, d.item_id, d.text,
 		       NOT EXISTS (
 		           SELECT 1 FROM preset_selections ps
 		           WHERE ps.preset_id = ? AND ps.detail_id = d.id AND ps.included = 0
 		       ) AS included
 		FROM item_details d
-		WHERE d.item_id = ?
-		ORDER BY d.sort_order, d.id`, presetID, itemID)
+		JOIN items i ON i.id = d.item_id
+		JOIN sections s ON s.id = i.section_id
+		ORDER BY s.sort_order, s.id, i.sort_order, i.id, d.sort_order, d.id`, presetID)
 	if err != nil {
-		return nil, fmt.Errorf("load details: %w", err)
+		return state, fmt.Errorf("load details: %w", err)
 	}
-	defer rows.Close()
-
-	details := []models.Detail{}
-	for rows.Next() {
+	for detailRows.Next() {
 		var d models.Detail
 		var included int
-		if err := rows.Scan(&d.ID, &d.Text, &included); err != nil {
-			return nil, err
+		if err := detailRows.Scan(&d.ID, &d.ItemID, &d.Text, &included); err != nil {
+			detailRows.Close()
+			return state, err
 		}
-		d.ItemID = itemID
+		pos, ok := itemIdx[d.ItemID]
+		if !ok {
+			continue
+		}
 		d.Included = included == 1
-		details = append(details, d)
+		state.Sections[pos.sec].Items[pos.idx].Details = append(
+			state.Sections[pos.sec].Items[pos.idx].Details, d,
+		)
 	}
-	return details, rows.Err()
+	if err := detailRows.Err(); err != nil {
+		detailRows.Close()
+		return state, err
+	}
+	detailRows.Close()
+	return state, nil
 }
 
 func isValidSectionType(sectionType string) bool {

@@ -5,21 +5,31 @@ import type { Item, ResumeState, Section, SectionType, Detail, StyleRole, TextSt
 const SAVE_DEBOUNCE_MS = 400;
 
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
+const pendingFns = new Map<string, () => void>();
 
 function debounce(key: string, fn: () => void) {
-	clearTimeout(timers.get(key));
+	const t = timers.get(key);
+	if (t) clearTimeout(t);
+	pendingFns.set(key, fn);
 	timers.set(key, setTimeout(() => {
 		timers.delete(key);
-		fn();
+		const f = pendingFns.get(key);
+		pendingFns.delete(key);
+		f?.();
 	}, SAVE_DEBOUNCE_MS));
 }
 
-export function flushSave(key: string) {
-	const t = timers.get(key);
-	if (t) {
-		clearTimeout(t);
-		timers.delete(key);
-	}
+// Runs every pending debounced save immediately, so closing the window
+// right after typing does not lose the last change.
+export function flushPendingSaves() {
+	for (const t of timers.values()) clearTimeout(t);
+	timers.clear();
+	for (const fn of pendingFns.values()) fn();
+	pendingFns.clear();
+}
+
+if (typeof window !== 'undefined') {
+	window.addEventListener('pagehide', flushPendingSaves);
 }
 
 // selectedSectionId === 0 means the Profile view is selected.
@@ -99,9 +109,10 @@ class ResumeStore {
 			return;
 		}
 		try {
-			const bootstrap = await api.getResumeState(0);
-			this.activePresetId = bootstrap.presets[0]?.id ?? 0;
-			this.state = await api.getResumeState(this.activePresetId);
+			// presetId 0 resolves to the oldest preset on the backend.
+			const state = await api.getResumeState(0);
+			this.state = state;
+			this.activePresetId = state.presets[0]?.id ?? 0;
 			if (this.sections.length > 0) {
 				this.selectedSectionId = this.sections[0].id;
 			}
@@ -190,9 +201,15 @@ class ResumeStore {
 		if (!section) return;
 		section.titleColor = titleColor;
 		section.lineColor = lineColor;
-		api.setSectionColors(sectionId, titleColor, lineColor).catch(async (e: unknown) => {
-			this.fail(e);
-			await this.reload();
+		// Color pickers fire many input events while dragging; coalesce them
+		// and send the latest values.
+		debounce(`section-colors:${sectionId}`, () => {
+			api
+				.setSectionColors(sectionId, section.titleColor ?? '', section.lineColor ?? '')
+				.catch(async (e: unknown) => {
+					this.fail(e);
+					await this.reload();
+				});
 		});
 	}
 
@@ -451,7 +468,8 @@ class ResumeStore {
 	async deletePreset(id: number) {
 		try {
 			await api.deletePreset(id);
-			const next = this.presets[0]?.id ?? 0;
+			// The state still lists the deleted preset; pick another one.
+			const next = this.presets.find((p) => p.id !== id)?.id ?? 0;
 			await this.switchPreset(next);
 			this.setStatus('Preset deleted');
 		} catch (e) {

@@ -13,9 +13,9 @@
 
 	function initialWidth(): number {
 		const saved = Number(localStorage.getItem(SPLIT_KEY));
-		const max = window.innerWidth - MIN_PANE_WIDTH;
+		const max = Math.max(MIN_PANE_WIDTH, window.innerWidth - MIN_PANE_WIDTH);
 		if (saved >= MIN_PANE_WIDTH && saved <= max) return saved;
-		return Math.min(Math.round(window.innerWidth * 0.5), max);
+		return Math.max(MIN_PANE_WIDTH, Math.min(Math.round(window.innerWidth * 0.5), max));
 	}
 
 	let leftWidth = $state(initialWidth());
@@ -49,7 +49,11 @@
 </script>
 
 <svelte:window
-	onresize={() => (leftWidth = Math.min(leftWidth, window.innerWidth - MIN_PANE_WIDTH))}
+	onresize={() =>
+		(leftWidth = Math.max(
+			MIN_PANE_WIDTH,
+			Math.min(leftWidth, window.innerWidth - MIN_PANE_WIDTH)
+		))}
 />
 
 <TopBar />

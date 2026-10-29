@@ -165,30 +165,6 @@ func (s *Store) columnExists(table, column string) (bool, error) {
 }
 
 func (s *Store) seed() error {
-	var count int
-	if err := s.db.QueryRow(`SELECT COUNT(*) FROM sections`).Scan(&count); err != nil {
-		return err
-	}
-	if count == 0 {
-		defaults := []struct {
-			sectionType models.SectionType
-			title       string
-		}{
-			{models.SectionContact, "Contact"},
-			{models.SectionSkills, "Skills"},
-			{models.SectionExperience, "Professional Experience"},
-			{models.SectionEducation, "Education"},
-		}
-		for i, d := range defaults {
-			if _, err := s.db.Exec(
-				`INSERT INTO sections (type, title, sort_order) VALUES (?, ?, ?)`,
-				string(d.sectionType), d.title, i,
-			); err != nil {
-				return err
-			}
-		}
-	}
-
 	if _, err := s.db.Exec(
 		`INSERT INTO profile (id, name, headline) VALUES (1, '', '')
 		 ON CONFLICT(id) DO NOTHING`,
@@ -196,16 +172,43 @@ func (s *Store) seed() error {
 		return err
 	}
 
+	// Seed the default sections and preset only on a fresh database (no
+	// presets yet). Re-seeding whenever sections happen to be empty would
+	// resurrect sections the user deliberately deleted.
 	var presetCount int
 	if err := s.db.QueryRow(`SELECT COUNT(*) FROM presets`).Scan(&presetCount); err != nil {
 		return err
 	}
-	if presetCount == 0 {
-		if _, err := s.db.Exec(`INSERT INTO presets (name) VALUES ('Default')`); err != nil {
+	if presetCount > 0 {
+		return nil
+	}
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	defaults := []struct {
+		sectionType models.SectionType
+		title       string
+	}{
+		{models.SectionContact, "Contact"},
+		{models.SectionSkills, "Skills"},
+		{models.SectionExperience, "Professional Experience"},
+		{models.SectionEducation, "Education"},
+	}
+	for i, d := range defaults {
+		if _, err := tx.Exec(
+			`INSERT INTO sections (type, title, sort_order) VALUES (?, ?, ?)`,
+			string(d.sectionType), d.title, i,
+		); err != nil {
 			return err
 		}
 	}
-	return nil
+	if _, err := tx.Exec(`INSERT INTO presets (name) VALUES ('Default')`); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 // GetProfile returns the global profile.
