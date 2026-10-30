@@ -112,19 +112,29 @@
 		resume.reorderItems(section.id, ids);
 	}
 
-	// Moves a skill into a group at the given index within that group.
-	function moveSkill(itemId: number, targetDividerId: number | null, index: number) {
+	// Moves a skill into a group, inserted before beforeId (or at the end
+	// of the group's run when beforeId is null).
+	function moveSkill(itemId: number, targetDividerId: number | null, beforeId: number | null) {
 		const ids = flatIds();
 		const from = ids.indexOf(itemId);
 		if (from < 0) return;
 		ids.splice(from, 1);
+		const isDivider = (id: number) =>
+			(section.items ?? []).find((i) => i.id === id)?.data.divider === true;
 		let insertAt: number;
-		if (targetDividerId === null) {
-			insertAt = index;
+		if (beforeId !== null) {
+			insertAt = ids.indexOf(beforeId);
+			if (insertAt < 0) return;
+		} else if (targetDividerId === null) {
+			// End of the ungrouped run: just before the first divider.
+			const firstDivider = ids.findIndex(isDivider);
+			insertAt = firstDivider < 0 ? ids.length : firstDivider;
 		} else {
+			// End of the group's run: just before the next divider.
 			const divIdx = ids.indexOf(targetDividerId);
 			if (divIdx < 0) return;
-			insertAt = divIdx + 1 + index;
+			insertAt = divIdx + 1;
+			while (insertAt < ids.length && !isDivider(ids[insertAt])) insertAt++;
 		}
 		ids.splice(insertAt, 0, itemId);
 		resume.reorderItems(section.id, ids);
@@ -175,7 +185,7 @@
 					layout="flow"
 					kind="skill"
 					reorder={(ids) => reorderGroupSkills(group, ids)}
-					moveIn={(itemId, index) => moveSkill(itemId, group.dividerId, index)}
+					moveIn={(itemId, beforeId) => moveSkill(itemId, group.dividerId, beforeId)}
 				>
 					{#snippet row(item: Item)}
 						{#if editingId === item.id}
