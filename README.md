@@ -4,6 +4,10 @@ critical.
 
 # Resumator
 
+<p align="center">
+	<img src="logo.png" alt="Resumator logo" width="300"/>
+</p>
+
 Resumator is a desktop application for building and maintaining multiple
 versions of a professional resume. You write your content once — contact
 details, skills, professional experience, education, and any number of

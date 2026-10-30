@@ -2,6 +2,7 @@
 	import { resume } from '../lib/stores/resume.svelte';
 	import { theme } from '../lib/theme.svelte';
 	import Icon from './Icon.svelte';
+	import logoUrl from '../assets/images/logo-64.png';
 
 	let showNewForm = $state(false);
 	let showSaveAsForm = $state(false);
@@ -57,6 +58,9 @@
 </script>
 
 <header class="topbar">
+	<div class="brand">
+		<img src={logoUrl} alt="Resumator" class="brand-logo" />
+	</div>
 	<div class="presets">
 		<span class="preset-label">Resume</span>
 		<select
@@ -156,6 +160,19 @@
 		background: var(--card);
 		border-bottom: 1px solid var(--border);
 		flex-wrap: wrap;
+	}
+
+	.brand {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		margin-right: 8px;
+	}
+
+	.brand-logo {
+		width: 22px;
+		height: 22px;
+		border-radius: 6px;
 	}
 
 	.presets {
