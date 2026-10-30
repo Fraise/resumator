@@ -71,6 +71,11 @@ jobs:
         shell: bash
         run: |
           ls -la build/bin
+          # Ship the Linux desktop entry + icon alongside the binary so the
+          # taskbar/dock can show the app icon (see packaging/install-linux.sh).
+          if [ "${{ matrix.build.platform }}" = "linux/amd64" ]; then
+            cp packaging/resumator.desktop packaging/resumator.png packaging/install-linux.sh build/bin/
+          fi
           tar -czf ${{ matrix.build.artifact }} -C build/bin .
 
       - name: Package (zip)

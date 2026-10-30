@@ -38,6 +38,10 @@ func main() {
 		Linux: &linux.Options{
 			Icon:             appIcon,
 			WebviewGpuPolicy: linux.WebviewGpuPolicyNever,
+			// Sets the WM_CLASS/app-id via g_set_prgname; on Wayland the
+			// dock/taskbar matches the window to resumator.desktop through
+			// this name (see packaging/resumator.desktop).
+			ProgramName: "resumator",
 		},
 		// WebKitGTK navigates the webview to any file dropped onto the
 		// window (file:// URL); the app has no drop handling, so disable it.

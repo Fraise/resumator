@@ -53,6 +53,22 @@ wails build
 The executable is placed in `build/bin/` (`resumator.exe` on Windows,
 `resumator.app` on macOS).
 
+### Linux taskbar/dock icon
+
+On Linux the window is matched to a `.desktop` entry by its app-id
+(`resumator`), and the dock takes the icon from that entry. The release
+tarball and `packaging/` contain everything needed:
+
+```
+# put the binary on PATH, then install the desktop entry + icon
+sudo cp build/bin/resumator /usr/local/bin/
+sudo packaging/install-linux.sh
+```
+
+Without this, Wayland docks show a generic icon (the window icon itself is
+also set in-app, but Wayland compositors ignore it in favour of the
+`.desktop` entry).
+
 ### Where your data is saved
 
 All resume content, presets and selections live in a single SQLite file

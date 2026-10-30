@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Resumator
+Comment=Build and maintain multiple versions of your professional resume
+Exec=resumator
+Icon=resumator
+Categories=Office;Utility;
+Terminal=false
+StartupWMClass=resumator
