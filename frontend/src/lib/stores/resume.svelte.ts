@@ -231,6 +231,19 @@ class ResumeStore {
 	async reorderSections(ids: number[]) {
 		if (!this.state) return;
 		const previous = this.sections;
+		// Contact sections are pinned in the sidebar: whatever order the
+		// drag produced, they keep their current positions.
+		const pinned = new Map<number, number>(); // section id -> current index
+		previous.forEach((s, i) => {
+			if (s.type === 'contact') pinned.set(s.id, i);
+		});
+		if (pinned.size > 0) {
+			const rest = ids.filter((id) => !pinned.has(id));
+			for (const [id, at] of [...pinned.entries()].sort((a, b) => a[1] - b[1])) {
+				rest.splice(Math.min(at, rest.length), 0, id);
+			}
+			ids = rest;
+		}
 		this.state.sections = ids
 			.map((id) => previous.find((s) => s.id === id))
 			.filter((s): s is Section => !!s);

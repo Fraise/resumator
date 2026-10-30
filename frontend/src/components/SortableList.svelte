@@ -9,7 +9,8 @@
 		row,
 		layout = 'list',
 		kind = '',
-		moveIn
+		moveIn,
+		isDraggable = () => true
 	}: {
 		items: T[];
 		reorder: (ids: number[]) => void;
@@ -22,6 +23,9 @@
 		/** Called when an item from another list of the same kind is dropped
 		 * here. When absent, only same-list reordering is possible. */
 		moveIn?: (itemId: number, index: number) => void;
+		/** Items for which this returns false are pinned: their grip is
+		 * inert and they cannot be dragged. */
+		isDraggable?: (item: T) => boolean;
 	} = $props();
 
 	let container: HTMLElement;
@@ -140,6 +144,7 @@
 	bind:this={container}
 >
 	{#each items as item, index (item.id)}
+		{@const draggable = isDraggable(item)}
 		{#if dropIndex === index && sortable.current?.itemId !== item.id}
 			<div class="drop-marker" aria-hidden="true"></div>
 		{/if}
@@ -150,16 +155,17 @@
 		>
 			<span
 				class="grip"
+				class:pinned={!draggable}
 				role="button"
 				tabindex="-1"
-				aria-label="Drag to reorder"
-				title="Drag to reorder"
-				onpointerdown={(e) => onGripPointerDown(e, item)}
-				onpointermove={onGripPointerMove}
-				onpointerup={() => finishDrag(true)}
-				onpointercancel={() => finishDrag(false)}
+				aria-label={draggable ? 'Drag to reorder' : 'Pinned, cannot be moved'}
+				title={draggable ? 'Drag to reorder' : 'Pinned, cannot be moved'}
+				onpointerdown={draggable ? (e) => onGripPointerDown(e, item) : undefined}
+				onpointermove={draggable ? onGripPointerMove : undefined}
+				onpointerup={draggable ? () => finishDrag(true) : undefined}
+				onpointercancel={draggable ? () => finishDrag(false) : undefined}
 			>
-				<Icon name="grip" size={14} />
+				<Icon name={draggable ? 'grip' : 'lock'} size={14} />
 			</span>
 			<div class="row-content">
 				{@render row(item)}
@@ -224,6 +230,15 @@
 
 	.grip:active {
 		cursor: grabbing;
+	}
+
+	.grip.pinned {
+		cursor: default;
+		opacity: 0.45;
+	}
+
+	.grip.pinned:hover {
+		color: var(--muted-foreground);
 	}
 
 	.row-content {

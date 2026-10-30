@@ -45,7 +45,11 @@
 	</button>
 
 	<div class="nav-group-label">Sections</div>
-	<SortableList items={resume.sections} reorder={(ids) => resume.reorderSections(ids)}>
+	<SortableList
+		items={resume.sections}
+		reorder={(ids) => resume.reorderSections(ids)}
+		isDraggable={(section) => section.type !== 'contact'}
+	>
 		{#snippet row(section: Section)}
 			<div
 				class="nav-item"

@@ -45,6 +45,9 @@
 		<path d="M3.5 4.5h9" />
 		<path d="M8 4.5v9" />
 		<path d="M5.5 13.5h5" />
+	{:else if name === 'lock'}
+		<rect x="3.5" y="7" width="9" height="6.5" rx="1.5" />
+		<path d="M5.5 7V5.2a2.5 2.5 0 0 1 5 0V7" />
 	{:else if name === 'copy'}
 		<rect x="5.5" y="5.5" width="8" height="8" rx="1.5" />
 		<path d="M10.5 3.5v-1a1 1 0 0 0-1-1h-7a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h1" />
